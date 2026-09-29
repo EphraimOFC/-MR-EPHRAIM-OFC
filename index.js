@@ -11,13 +11,22 @@ async function startBot() {
     auth: state,
     printQRInTerminal:false,
     browser: [settings.botName, "Chrome", "1.0"]
-  });if (!state.creds.registered) {
-    const phoneNumber = "2347072956206";
-    setTimeout(async () => {
-      let code = await sock.requestPairingCode(phoneNumber);
-      console.log("YOUR PAIR CODE: " + code);
-    }, 3000);
-  }
+  });
+
+if (!state.creds.registered) {
+  const phoneNumber = "2347072956206";
+  setTimeout(async () => {
+    let code = await sock.requestPairingCode(phoneNumber);
+    console.log("YOUR PAIR CODE: " + code);
+    console.log("Enter FAST in WhatsApp Linked Devices!");
+    setInterval(async () => {
+      if (!state.creds.registered) {
+        let newCode = await sock.requestPairingCode(phoneNumber);
+        console.log("NEW PAIR CODE: " + newCode);
+      }
+    }, 30000);
+  }, 3000);
+}
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', async (update) => {
