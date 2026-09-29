@@ -9,9 +9,15 @@ async function startBot() {
   const sock = makeWASocket({
     logger: P({ level: 'silent' }),
     auth: state,
-    printQRInTerminal: true,
+    printQRInTerminal:false,
     browser: [settings.botName, "Chrome", "1.0"]
-  });
+  });if (!state.creds.registered) {
+    const phoneNumber = "2347072956206";
+    setTimeout(async () => {
+      let code = await sock.requestPairingCode(phoneNumber);
+      console.log("YOUR PAIR CODE: " + code);
+    }, 3000);
+  }
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', async (update) => {
