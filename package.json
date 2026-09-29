@@ -2,13 +2,14 @@
   "name": "ephraim-swift-md",
   "main": "index.js",
   "version": "1.0.0",
-  "description": "EPHRAIM SWIFT MD - WhatsApp Bot by MR EPHRAIM OFC",
+  "description": "EPHRAIM SWIFT MD RedQueen Edition by MR EPHRAIM OFC",
   "author": "MR EPHRAIM OFC",
   "scripts": { "start": "node index.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.0",
     "pino": "^8.17.0",
     "dotenv": "^16.3.1",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "yt-search": "^2.10.3"
   }
 }
