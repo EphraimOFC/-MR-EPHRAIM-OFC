@@ -1,5 +1,5 @@
 module.exports = {
-  botName: "EPHRAIM SWIFT MD",
+  botName: "E TECH OFC",
   ownerName: "MR EPHRAIM OFC",
   ownerNumber: "2347072956206",
   prefix: ".",
@@ -9,5 +9,9 @@ module.exports = {
   autoRead: false,
   autoStatusView: false,
   antiCall: false,
-  autoReact: false
+  autoReact: false,
+  aliveImage: "https://raw.githubusercontent.com/EphraimOFC/-MR-EPHRAIM-OFC-/main/banner.jpg",
+  menuImage: "https://raw.githubusercontent.com/EphraimOFC/-MR-EPHRAIM-OFC-/main/banner.jpg",
+  footer: "Powered By E Tech OFC",
+  caption: "Created By Mr Ephraim OFC"
 }
