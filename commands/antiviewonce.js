@@ -1,22 +1,16 @@
-let isEnabled = true; // ON by default
-
 module.exports = {
   name: "antiviewonce",
   execute: async (sock, m, args, settings) => {
+    if(!global.antiviewonce) global.antiviewonce = true;
     const text = args[0]?.toLowerCase();
     if (text === "on") {
-      isEnabled = true;
       global.antiviewonce = true;
-      return m.reply("✅ *Anti-ViewOnce ON*\nBot go now open all View Once.");
+      await sock.sendMessage(m.chat, { text: "✅ *Anti-ViewOnce ON*\nBot go open Photo, Video, Voice Note - ALL ViewOnce" }, { quoted: m });
     } else if (text === "off") {
-      isEnabled = false;
       global.antiviewonce = false;
-      return m.reply("❌ *Anti-ViewOnce OFF*");
+      await sock.sendMessage(m.chat, { text: "❌ *Anti-ViewOnce OFF*" }, { quoted: m });
     } else {
-      return m.reply(`*Anti-ViewOnce:* ${global.antiviewonce? "ON ✅" : "OFF ❌"}\n\nUse:\n.antiviewonce on\n.antiviewonce off\n\n> ${settings.footer}`);
+      await sock.sendMessage(m.chat, { text: `*Anti-ViewOnce:* ${global.antiviewonce? "ON ✅" : "OFF ❌"}\n\nUse:\n.antiviewonce on\n.antiviewonce off\n\n> ${settings.footer}` }, { quoted: m });
     }
   }
 };
-
-// For index.js to check
-module.exports.isEnabled = () => global.antiviewonce!== false;
