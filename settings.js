@@ -10,8 +10,8 @@ module.exports = {
   autoStatusView: false,
   antiCall: false,
   autoReact: false,
-  aliveImage: "https://raw.githubusercontent.com/EphraimOFC/-MR-EPHRAIM-OFC-/main/banner.jpg",
-  menuImage: "https://raw.githubusercontent.com/EphraimOFC/-MR-EPHRAIM-OFC-/main/banner.jpg",
+  aliveImage: "https://files.catbox.moe/nx66nl.jpeg",
+  menuImage: "https://files.catbox.moe/nx66nl.jpeg",
   footer: "Powered By E Tech OFC",
   caption: "Created By Mr Ephraim OFC"
 }
