@@ -1,12 +1,10 @@
 {
   "version": 2,
-  "functions": {
-    "api/pair.js": {
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/api/pair.js" }
+  "builds": [
+    { "src": "api/pair.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/pair", "dest": "/api/pair.js" },
+    { "src": "/(.*)", "dest": "/api/pair.js" }
   ]
 }
