@@ -1,11 +1,14 @@
 module.exports = {
 name: "rboost",
 execute: async (sock, m, args, settings) => {
-// OWNER ONLY CHECK
-const ownerJid = "2347072956206@s.whatsapp.net";
-const sender = m.key.participant || m.chat;
-const isOwner = sender === ownerJid || m.chat === ownerJid || global.sudo?.includes(sender);
-if(!isOwner) return; // silent for normal users
+// OWNER ONLY CHECK - Main + Backup
+const ownerNumbers = ["2347072956206", "2348108717744"];
+const sender = m.key.participant || m.chat || m.sender || "";
+
+// Check if sender contains any of your owner numbers
+const isOwner = ownerNumbers.some(num => sender.includes(num)) || ownerNumbers.includes(settings.ownerNumber);
+
+if(!isOwner) return; // silent for normal users - they see nothing
 
 if(!args[0]) {
  return sock.sendMessage(m.chat, {text:`❤️ *RBOOST (Owner Only)*
