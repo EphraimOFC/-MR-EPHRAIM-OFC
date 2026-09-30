@@ -1,50 +1,76 @@
-module.exports = {
-name: "song",
-execute: async (sock, m, args, settings) => {
-if(!args[0]) return sock.sendMessage(m.chat, { text: `*E TECH OFC SONG DL*\n\nUsage:.song Alan Walker - Faded\n\n> ${settings.footer}` }, { quoted: m });
-const query = args.join(" ");
-await sock.sendMessage(m.chat, { text: `🎵 *Searching:* ${query}...` }, { quoted: m });
-try {
-  // Anti-ban delay before download
-  await new Promise(r => setTimeout(r, 1500));
-  const res = await fetch(`https://api.davidcyriltech.my.id/song?query=${encodeURIComponent(query)}`);
-  const data = await res.json();
-  if(!data.result ||!data.result.download_url) throw new Error("Not found");
+const ytSearch = require('yt-search');
+const axios = require('axios');
 
-  await sock.sendMessage(m.chat, {
-    image: { url: data.result.thumbnail },
-    caption: `╭───◐\n│ 🎵 *${data.result.title}*\n│ 👤 ${data.result.author || 'YouTube'}\n│ ⏱️ ${data.result.duration || ''}\n│ 🔗 ${settings.channelLink}\n╰───◐\n\n> Downloading audio...`,
-    contextInfo: {
-      externalAdReply: {
-        title: data.result.title,
-        body: "E TECH OFC - Song Download",
-        thumbnailUrl: settings.menuImage,
-        sourceUrl: settings.channelLink,
-        mediaType: 1,
-        renderLargerThumbnail: true
-      }
-    }
+module.exports = async (sock, m, args, { from }) => {
+  if (!args.length) return sock.sendMessage(from, { text: "❌ Use:.song zuva rese" }, { quoted: m });
+
+  const query = args.join(" ");
+  const search = await ytSearch(query);
+  const video = search.videos[0];
+  if (!video) return sock.sendMessage(from, { text: "❌ Song not found" }, { quoted: m });
+
+  // SAME INTERFACE AS YOUR PHOTO - NO CHANGE
+  const caption = `🤍•─────────⊹⊱•❁•⊰⊹─────────•🤍
+         ✨ SONG DOWNLOADER ✨
+🤍•─────────⊹⊱•❁•⊰⊹─────────•🤍
+
+✨ Title :- ${video.title}
+👤 Author :- ${video.author.name}
+👁️ Views :- ${video.views.toLocaleString()}
+⏳ Ago :- ${video.ago}
+▶️•|||| ||||||||• ${video.timestamp}
+
+┌─「 REPLY TO DOWNLOAD 」
+│ 🎵 AUDIO
+│ 📄 DOCUMENT
+└───────────────
+
+| redqueen.online replaced ↓
+| etechofc.vercel.app </> Powered by E TECH OFC`;
+
+  await sock.sendMessage(from, {
+    image: { url: video.thumbnail },
+    caption: caption,
+    footer: "etechofc.vercel.app </> Powered by E TECH OFC",
+    buttons: [
+      { buttonId: `audio_${video.url}`, buttonText: { displayText: "🎵 Audio" }, type: 1 },
+      { buttonId: `doc_${video.url}`, buttonText: { displayText: "📄 Document" }, type: 1 }
+    ],
+    headerType: 4
   }, { quoted: m });
+};
 
-  await sock.sendMessage(m.chat, {
-    audio: { url: data.result.download_url },
-    mimetype: 'audio/mpeg',
-    fileName: `${data.result.title}.mp3`,
-    ptt: false,
-    contextInfo: {
-      externalAdReply: {
-        title: data.result.title,
-        body: "Powered By E TECH OFC | 2347072956206",
-        thumbnailUrl: data.result.thumbnail,
-        sourceUrl: settings.channelLink,
-        mediaType: 2
+// ADD THIS ONE TIME IN YOUR index.js / bot.js - handles tap
+/*
+sock.ev.on('messages.upsert', async ({messages}) => {
+  const msg = messages[0];
+  if (!msg.message?.buttonsResponseMessage) return;
+  const id = msg.message.buttonsResponseMessage.selectedButtonId;
+
+  if (id.startsWith("audio_") || id.startsWith("doc_")) {
+    const url = id.replace("audio_", "").replace("doc_", "");
+    const isDoc = id.startsWith("doc_");
+
+    try {
+      const { data } = await axios.get(`https://api.davidcyriltech.my.id/download/ytmp3?url=${url}`);
+      const dl = data.result.downloadUrl;
+
+      if (isDoc) {
+        await sock.sendMessage(msg.key.remoteJid, {
+          document: { url: dl },
+          mimetype: "audio/mpeg",
+          fileName: `${Date.now()}.mp3`,
+          caption: "etechofc.vercel.app </> Powered by E TECH OFC"
+        }, { quoted: msg });
+      } else {
+        await sock.sendMessage(msg.key.remoteJid, {
+          audio: { url: dl },
+          mimetype: "audio/mpeg"
+        }, { quoted: msg });
       }
+    } catch {
+      await sock.sendMessage(msg.key.remoteJid, { text: "❌ Download failed" }, { quoted: msg });
     }
-  }, { quoted: m });
-
-} catch(e){
-  console.log(e);
-  await sock.sendMessage(m.chat, { text: `❌ Failed. Try another name.\n> ${settings.footer}` }, { quoted: m });
-}
-}
-}
+  }
+});
+*/
