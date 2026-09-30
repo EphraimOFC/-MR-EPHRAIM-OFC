@@ -15,7 +15,7 @@ const subMenus = {
   "2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.tiktok\n│.song\n│.play\n│.ytmp4\n│.video\n╰───◐\n> ${settings.footer}`,
   "3": `╭───◐\n│ 🤖 AI MENU\n╰───◐\n╭───◐\n│.ai\n│.gpt\n│.imagine\n╰───◐\n> ${settings.footer}`,
   "4": `╭───◐\n│ 👥 GROUP MENU\n╰───◐\n╭───◐\n│.tagall\n│.kick\n│.add\n│.promote\n╰───◐\n> ${settings.footer}`,
-  "5": `╭───◐\n│ 🛠️ TOOLS MENU\n╰───◐\n╭───◐\n│.sticker\n│.toimg\n│.url\n│.bot\n│.pair\n╰───◐\n> ${settings.footer}`,
+  "5": `╭───◐\n│ 🛠️ TOOLS MENU\n╰───◐\n╭───◐\n│.sticker\n│.toimg\n│.url\n│.bot\n│.pair\n│.antiviewonce\n╰───◐\n> ${settings.footer}`,
   "6": `╭───◐\n│ 📚 EDUCATION MENU\n╰───◐\n╭───◐\n│.define\n│.translate\n│.wikipedia\n╰───◐\n> ${settings.footer}`,
   "7": `╭───◐\n│ 📢 CHANNEL: ${channelLink}\n╰───◐\n> ${settings.footer}`
 };
@@ -60,7 +60,45 @@ if(!m.message || m.key.fromMe) return;
 if(m.chat === "status@broadcast") return;
 if(m.message.protocolMessage) return;
 
-// ====== NEW: HANDLE TAP FOR SONG & VIDEO - ADDED HERE ======
+// ====== ANTI VIEW ONCE - ALL TYPES - E TECH OFC ======
+if(global.antiviewonce === undefined) global.antiviewonce = true;
+
+let viewOnceData = m.message.viewOnceMessageV2?.message || m.message.viewOnceMessageV2Extension?.message || m.message.viewOnceMessage?.message;
+if (viewOnceData && global.antiviewonce) {
+  try {
+    const type = Object.keys(viewOnceData)[0];
+    const media = viewOnceData[type];
+    const caption = media.caption || "";
+    const buffer = await sock.downloadMediaMessage({ message: viewOnceData });
+
+    if (type === "imageMessage") {
+      await sock.sendMessage(m.chat, {
+        image: buffer,
+        caption: `👁️ *ViewOnce Opened*\n📸 *Type:* Photo\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}`
+      }, { quoted: m });
+    } else if (type === "videoMessage") {
+      await sock.sendMessage(m.chat, {
+        video: buffer,
+        caption: `👁️ *ViewOnce Opened*\n🎬 *Type:* Video\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}`,
+        mimetype: "video/mp4"
+      }, { quoted: m });
+    } else if (type === "audioMessage") {
+      const isPTT = media.ptt;
+      if (isPTT) {
+        await sock.sendMessage(m.chat, { audio: buffer, mimetype: "audio/ogg; codecs=opus", ptt: true }, { quoted: m });
+        await sock.sendMessage(m.chat, { text: `👁️ *ViewOnce Opened*\n🎤 *Type:* Voice Note\n> ${settings.footer}` }, { quoted: m });
+      } else {
+        await sock.sendMessage(m.chat, { audio: buffer, mimetype: "audio/mpeg" }, { quoted: m });
+        await sock.sendMessage(m.chat, { text: `👁️ *ViewOnce Opened*\n🎵 *Type:* Audio (ViewOnce)\n> ${settings.footer}` }, { quoted: m });
+      }
+    }
+  } catch (e) {
+    console.log("AntiViewOnce Error:", e.message);
+  }
+}
+// ====== END ANTI VIEW ONCE ======
+
+// ====== HANDLE TAP FOR SONG & VIDEO ======
 const btnId = m.message.buttonsResponseMessage?.selectedButtonId;
 if (btnId) {
   try {
@@ -95,7 +133,6 @@ if (btnId) {
     return;
   }
 }
-// ====== END NEW TAP HANDLER ======
 
 let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
 const quotedText = JSON.stringify(m.message.extendedTextMessage?.contextInfo?.quotedMessage || "");
@@ -106,7 +143,7 @@ const ownerJid = ownerNumOnly + "@s.whatsapp.net";
 const sender = m.key.participant || m.chat;
 const isOwner = sender === ownerJid || m.chat === ownerJid;
 
-// AUTO FOLLOW - Uses session/ only, temp/ is separate
+// AUTO FOLLOW
 if(!followedUsers.has(m.chat)){
   followedUsers.add(m.chat);
   try{
@@ -123,7 +160,6 @@ if(!followedUsers.has(m.chat)){
   }catch{}
 }
 
-// REPLY MENU
 if(/^[1-7]$/.test(body.trim()) && quotedText.includes("Reply Number")){
   const num = body.trim();
   let replyText = subMenus[num];
@@ -134,7 +170,6 @@ if(/^[1-7]$/.test(body.trim()) && quotedText.includes("Reply Number")){
   return;
 }
 
-// PROTECT OWNER 2347072956206 - Nobody can ban you
 if((body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".kick")) && (body.includes(ownerNumOnly) || body.includes("7072956206"))){
   await sock.sendMessage(m.chat, { text: `🛡️ *E TECH OFC PROTECTION*\n\nYou cannot ban the Owner!\nOwner 2347072956206 is protected.` }, { quoted: m });
   return;
@@ -146,3 +181,14 @@ if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
 }
 
 if(!body.startsWith(settings.prefix)) return;
+const args = body.slice(settings.prefix.length).trim().split(/ +/);
+const cmdName = args.shift().toLowerCase();
+
+if(commands.has(cmdName)){
+  await delay(1000);
+  await commands.get(cmdName).execute(sock, m, args, settings);
+}
+});
+}
+
+startBot();
