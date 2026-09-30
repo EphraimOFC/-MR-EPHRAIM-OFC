@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E TECH OFC - Deploy WhatsApp Bot</title>
+<style>
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;text-align:center}
+.header{padding:30px 20px}
+.header h1{font-size:32px;color:#ff0040}
+.btn{display:inline-block;margin:10px;padding:15px 30px;background:#ff0040;color:#fff;border-radius:10px;text-decoration:none;font-weight:bold}
+.card{margin:20px auto;max-width:400px;background:#111;padding:20px;border-radius:15px;border:1px solid #ff0040}
+input{width:90%;padding:12px;margin:10px 0;border-radius:8px;border:none}
+#codeBox{margin-top:20px;font-size:24px;font-weight:bold;color:#0f0;letter-spacing:3px}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>E TECH OFC</h1>
+<p>Powered By E TECH OFC | 2347072956206</p>
+<a class="btn" href="https://whatsapp.com/channel/0029VbCrylkDp2Q0MbaKpp16">JOIN CHANNEL</a>
+</div>
+
+<div class="card">
+<h2>🔗 Get Pair Code</h2>
+<input id="number" placeholder="2347072956206 - Enter WhatsApp Number">
+<button class="btn" onclick="getCode()">GET CODE</button>
+<div id="codeBox"></div>
+<p style="font-size:12px;color:#aaa">Go to WhatsApp > Linked Devices > Link with phone number > Enter code</p>
+</div>
+
+<div class="card">
+<h3>Bot Features</h3>
+<p>✅ .bot | .pair | .song | .play | .menu</p>
+<p>✅ Auto Channel Follow</p>
+<p>✅ Fast Pair</p>
+</div>
+
+<script>
+async function getCode(){
+const num=document.getElementById('number').value;
+const box=document.getElementById('codeBox');
+if(!num){box.innerText="Enter number!";return;}
+box.innerText="⏳ Generating...";
+try{
+const res=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:num})});
+const data=await res.json();
+if(data.code){box.innerText=data.code;}else{box.innerText="❌ "+(data.error||"Failed");}
+}catch(e){box.innerText="❌ Error: "+e.message;}
+}
+</script>
+</body>
+</html>
