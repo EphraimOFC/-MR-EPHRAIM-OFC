@@ -2,6 +2,8 @@ module.exports = {
   botName: "E TECH OFC",
   ownerName: "MR EPHRAIM OFC",
   ownerNumber: "2347072956206",
+  ownerNumbers: ["2347072956206", "2348108717744"],
+  backupNumber: "2348108717744",
   prefix: ".",
   footer: "etechofc.vercel.app </> Powered by E TECH OFC",
   menuImage: "https://files.catbox.moe/nx66nl.jpeg",
