@@ -3,7 +3,7 @@ module.exports = {
   ownerName: "MR EPHRAIM OFC",
   ownerNumber: "2347072956206",
   prefix: ".",
-  footer: "Powered By E TECH OFC",
+  footer: "etechofc.vercel.app </> Powered by E TECH OFC",
   menuImage: "https://files.catbox.moe/nx66nl.jpeg",
   aliveImage: "https://files.catbox.moe/nx66nl.jpeg",
   sessionName: "session",
