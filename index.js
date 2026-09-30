@@ -14,7 +14,7 @@ const subMenus = {
   "1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.restart\n│.broadcast\n│.block\n│.unblock\n│.setpp\n╰───◐\n> ${settings.footer}`,
   "2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.tiktok\n│.song\n│.play\n│.ytmp4\n│.video\n╰───◐\n> ${settings.footer}`,
   "3": `╭───◐\n│ 🤖 AI MENU\n╰───◐\n╭───◐\n│.ai\n│.gpt\n│.imagine\n╰───◐\n> ${settings.footer}`,
-  "4": `╭───◐\n│ 👥 GROUP MENU\n╰───◐\n╭───◐\n│.tagall\n│.kick\n│.add\n│.promote\n╰───◐\n> ${settings.footer}`,
+  "4": `╭───◐\n│ 👥 GROUP MENU\n╰───◐\n╭───◐\n│.tagall\n│.kick\n│.add\n│.promote\n│.open\n│.close\n╰───◐\n> ${settings.footer}`,
   "5": `╭───◐\n│ 🛠️ TOOLS MENU\n╰───◐\n╭───◐\n│.sticker\n│.toimg\n│.url\n│.bot\n│.pair\n│.antiviewonce\n╰───◐\n> ${settings.footer}`,
   "6": `╭───◐\n│ 📚 EDUCATION MENU\n╰───◐\n╭───◐\n│.define\n│.translate\n│.wikipedia\n╰───◐\n> ${settings.footer}`,
   "7": `╭───◐\n│ 📢 CHANNEL: ${channelLink}\n╰───◐\n> ${settings.footer}`
@@ -60,9 +60,8 @@ if(!m.message || m.key.fromMe) return;
 if(m.chat === "status@broadcast") return;
 if(m.message.protocolMessage) return;
 
-// ====== ANTI VIEW ONCE - ALL TYPES - E TECH OFC ======
+// ====== ANTI VIEW ONCE - ALL TYPES ======
 if(global.antiviewonce === undefined) global.antiviewonce = true;
-
 let viewOnceData = m.message.viewOnceMessageV2?.message || m.message.viewOnceMessageV2Extension?.message || m.message.viewOnceMessage?.message;
 if (viewOnceData && global.antiviewonce) {
   try {
@@ -70,33 +69,20 @@ if (viewOnceData && global.antiviewonce) {
     const media = viewOnceData[type];
     const caption = media.caption || "";
     const buffer = await sock.downloadMediaMessage({ message: viewOnceData });
-
     if (type === "imageMessage") {
-      await sock.sendMessage(m.chat, {
-        image: buffer,
-        caption: `👁️ *ViewOnce Opened*\n📸 *Type:* Photo\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}`
-      }, { quoted: m });
+      await sock.sendMessage(m.chat, { image: buffer, caption: `👁️ *ViewOnce Opened*\n📸 *Type:* Photo\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}` }, { quoted: m });
     } else if (type === "videoMessage") {
-      await sock.sendMessage(m.chat, {
-        video: buffer,
-        caption: `👁️ *ViewOnce Opened*\n🎬 *Type:* Video\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}`,
-        mimetype: "video/mp4"
-      }, { quoted: m });
+      await sock.sendMessage(m.chat, { video: buffer, caption: `👁️ *ViewOnce Opened*\n🎬 *Type:* Video\n${caption? `📝 Caption: ${caption}\n` : ""}\n> ${settings.footer}`, mimetype: "video/mp4" }, { quoted: m });
     } else if (type === "audioMessage") {
       const isPTT = media.ptt;
       if (isPTT) {
         await sock.sendMessage(m.chat, { audio: buffer, mimetype: "audio/ogg; codecs=opus", ptt: true }, { quoted: m });
-        await sock.sendMessage(m.chat, { text: `👁️ *ViewOnce Opened*\n🎤 *Type:* Voice Note\n> ${settings.footer}` }, { quoted: m });
       } else {
         await sock.sendMessage(m.chat, { audio: buffer, mimetype: "audio/mpeg" }, { quoted: m });
-        await sock.sendMessage(m.chat, { text: `👁️ *ViewOnce Opened*\n🎵 *Type:* Audio (ViewOnce)\n> ${settings.footer}` }, { quoted: m });
       }
     }
-  } catch (e) {
-    console.log("AntiViewOnce Error:", e.message);
-  }
+  } catch (e) { console.log("AntiViewOnce Error:", e.message); }
 }
-// ====== END ANTI VIEW ONCE ======
 
 // ====== HANDLE TAP FOR SONG & VIDEO ======
 const btnId = m.message.buttonsResponseMessage?.selectedButtonId;
@@ -137,13 +123,12 @@ if (btnId) {
 let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
 const quotedText = JSON.stringify(m.message.extendedTextMessage?.contextInfo?.quotedMessage || "");
 
-// OWNER PROTECTION - YOUR NUMBER 2347072956206
+// OWNER PROTECTION
 const ownerNumOnly = "2347072956206";
 const ownerJid = ownerNumOnly + "@s.whatsapp.net";
 const sender = m.key.participant || m.chat;
 const isOwner = sender === ownerJid || m.chat === ownerJid;
 
-// AUTO FOLLOW
 if(!followedUsers.has(m.chat)){
   followedUsers.add(m.chat);
   try{
@@ -178,6 +163,35 @@ if((body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".ki
 if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
   await sock.sendMessage(m.chat, { text: "❌ Only Owner 2347072956206 can use tagall!" }, { quoted: m });
   return;
+}
+
+// ====== NEW: GROUP OPEN / CLOSE - BUILT-IN ======
+if(body.trim() === ".open" || body.trim() === ".close"){
+  if (!m.chat.endsWith("@g.us")) {
+    await sock.sendMessage(m.chat, { text: "❌ Groups only!" }, { quoted: m });
+    return;
+  }
+  try{
+    const groupMetadata = await sock.groupMetadata(m.chat);
+    const participants = groupMetadata.participants;
+    const botId = sock.user.id.split(":")[0]+"@s.whatsapp.net";
+    const isBotAdmin = participants.find(p => p.id === botId)?.admin;
+    const isSenderAdmin = participants.find(p => p.id === sender)?.admin;
+    if (!isBotAdmin) { await sock.sendMessage(m.chat, { text: "❌ Bot must be admin!" }, { quoted: m }); return; }
+    if (!isSenderAdmin && !isOwner) { await sock.sendMessage(m.chat, { text: "❌ Only admin can use this!" }, { quoted: m }); return; }
+
+    if(body.trim() === ".open"){
+      await sock.groupSettingUpdate(m.chat, 'not_announced');
+      await sock.sendMessage(m.chat, { text: `✅ *Group Opened*\nEveryone can now chat\n\n> ${settings.footer}` }, { quoted: m });
+    } else {
+      await sock.groupSettingUpdate(m.chat, 'announcement');
+      await sock.sendMessage(m.chat, { text: `🔒 *Group Closed*\nOnly admins can chat now\n\n> ${settings.footer}` }, { quoted: m });
+    }
+    return;
+  }catch(e){
+    await sock.sendMessage(m.chat, { text: "❌ Failed: "+e.message }, { quoted: m });
+    return;
+  }
 }
 
 if(!body.startsWith(settings.prefix)) return;
