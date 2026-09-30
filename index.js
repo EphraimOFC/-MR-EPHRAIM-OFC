@@ -1,6 +1,7 @@
 const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const settings = require('./settings');
 
 const channelInviteCode = settings.channelInviteCode;
@@ -11,7 +12,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 const subMenus = {
   "1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.restart\n│.broadcast\n│.block\n│.unblock\n│.setpp\n╰───◐\n> ${settings.footer}`,
-  "2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.tiktok\n│.song\n│.play\n│.ytmp4\n╰───◐\n> ${settings.footer}`,
+  "2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.tiktok\n│.song\n│.play\n│.ytmp4\n│.video\n╰───◐\n> ${settings.footer}`,
   "3": `╭───◐\n│ 🤖 AI MENU\n╰───◐\n╭───◐\n│.ai\n│.gpt\n│.imagine\n╰───◐\n> ${settings.footer}`,
   "4": `╭───◐\n│ 👥 GROUP MENU\n╰───◐\n╭───◐\n│.tagall\n│.kick\n│.add\n│.promote\n╰───◐\n> ${settings.footer}`,
   "5": `╭───◐\n│ 🛠️ TOOLS MENU\n╰───◐\n╭───◐\n│.sticker\n│.toimg\n│.url\n│.bot\n│.pair\n╰───◐\n> ${settings.footer}`,
@@ -58,6 +59,43 @@ const m = messages[0];
 if(!m.message || m.key.fromMe) return;
 if(m.chat === "status@broadcast") return;
 if(m.message.protocolMessage) return;
+
+// ====== NEW: HANDLE TAP FOR SONG & VIDEO - ADDED HERE ======
+const btnId = m.message.buttonsResponseMessage?.selectedButtonId;
+if (btnId) {
+  try {
+    if (btnId.startsWith("audio_") || btnId.startsWith("doc_")) {
+      let url = btnId.replace("audio_", "").replace("doc_", "");
+      let isDoc = btnId.startsWith("doc_");
+      await sock.sendMessage(m.chat, { text: "⏳ *Downloading Audio...*" }, { quoted: m });
+      let { data } = await axios.get(`https://api.davidcyriltech.my.id/download/ytmp3?url=${url}`);
+      let dl = data.result?.downloadUrl || data.downloadUrl;
+      if (isDoc) {
+        await sock.sendMessage(m.chat, { document: { url: dl }, fileName: "E-TECH-OFC.mp3", mimetype: "audio/mpeg", caption: `${settings.footer}` }, { quoted: m });
+      } else {
+        await sock.sendMessage(m.chat, { audio: { url: dl }, mimetype: "audio/mpeg" }, { quoted: m });
+      }
+      return;
+    }
+    if (btnId.startsWith("vid_") || btnId.startsWith("viddoc_")) {
+      let url = btnId.replace("vid_", "").replace("viddoc_", "");
+      let isDoc = btnId.startsWith("viddoc_");
+      await sock.sendMessage(m.chat, { text: "⏳ *Downloading Video...*" }, { quoted: m });
+      let { data } = await axios.get(`https://api.davidcyriltech.my.id/download/ytmp4?url=${url}`);
+      let dl = data.result?.downloadUrl || data.downloadUrl;
+      if (isDoc) {
+        await sock.sendMessage(m.chat, { document: { url: dl }, fileName: "E-TECH-OFC.mp4", mimetype: "video/mp4", caption: `${settings.footer}` }, { quoted: m });
+      } else {
+        await sock.sendMessage(m.chat, { video: { url: dl }, mimetype: "video/mp4", caption: `${settings.footer}` }, { quoted: m });
+      }
+      return;
+    }
+  } catch (e) {
+    await sock.sendMessage(m.chat, { text: "❌ Download failed, try again!" }, { quoted: m });
+    return;
+  }
+}
+// ====== END NEW TAP HANDLER ======
 
 let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
 const quotedText = JSON.stringify(m.message.extendedTextMessage?.contextInfo?.quotedMessage || "");
@@ -108,15 +146,3 @@ if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
 }
 
 if(!body.startsWith(settings.prefix)) return;
-const args = body.slice(settings.prefix.length).trim().split(/ +/);
-const cmdName = args.shift().toLowerCase();
-
-if(commands.has(cmdName)){
-  await delay(1000);
-  await commands.get(cmdName).execute(sock, m, args, settings);
-}
-});
-}
-
-startBot();
-}
