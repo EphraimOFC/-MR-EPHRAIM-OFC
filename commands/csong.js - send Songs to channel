@@ -1,0 +1,20 @@
+const ytSearch = require('yt-search');
+const axios = require('axios');
+module.exports = {
+name: "csong",
+execute: async (sock, m, args, settings) => {
+if(!args.length) return sock.sendMessage(m.chat, {text:"❌ Use:.csong <song name>"}, {quoted: m});
+const q = args.join(" ");
+const s = await ytSearch(q);
+const video = s.videos[0];
+if(!video) return;
+const {data} = await axios.get(`https://api.davidcyriltech.my.id/download/ytmp3?url=${video.url}`);
+let dl = data.result?.downloadUrl;
+if(!global.channelJID){
+const meta = await sock.newsletterMetadata("invite", settings.channelInviteCode);
+global.channelJID = meta.id;
+}
+await sock.sendMessage(global.channelJID, {audio: {url: dl}, mimetype:"audio/mpeg", caption:`🎵 ${video.title}\n> ${settings.footer}`});
+await sock.sendMessage(m.chat, {text:`✅ Song sent to channel\n${settings.channelLink}`}, {quoted: m});
+}
+}
