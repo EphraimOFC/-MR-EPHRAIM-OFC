@@ -1,6 +1,8 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
+const pino = require('pino');
+const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 const chalk = require('chalk');
 const moment = require('moment-timezone');
@@ -49,9 +51,59 @@ const subMenus = {
 "7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n> ${settings.footer}`
 };
 
+// Keep reconnects single-flight. A socket can emit close while a scheduled
+// restart is already replacing it; without this guard two sockets can race on
+// the same auth files.
+let currentSock = null;
+let pendingRestart = null;
+let botGeneration = 0;
+let authFailureStreak = 0;
+const AUTH_FAILURE_LIMIT = 3;
+
+function scheduleRestart(delay, reason) {
+  if (pendingRestart) return;
+  pendingRestart = setTimeout(() => {
+    pendingRestart = null;
+    console.log(chalk.yellow(`🔄 Reconnecting (${reason})...`));
+    startBot().catch(error => console.log(chalk.red(`Reconnect failed: ${error.message}`)));
+  }, delay);
+}
+
 async function startBot() {
-const { state, saveCreds } = await useMultiFileAuthState(settings.sessionName);
-const sock = makeWASocket({ auth: state, printQRInTerminal: true, markOnlineOnConnect: false, syncFullHistory: false });
+if (currentSock) {
+  try { await currentSock.end(undefined, undefined, { reason: 'superseded' }); } catch (_) {}
+  currentSock = null;
+}
+const myGeneration = ++botGeneration;
+const sessionFolder = path.resolve(settings.sessionName);
+const credsFile = path.join(sessionFolder, 'creds.json');
+const credsBackup = `${credsFile}.bak`;
+
+// Recover a complete backup if the process was interrupted while Baileys was
+// writing creds.json.
+if (fs.existsSync(credsFile)) {
+  let healthy = false;
+  try {
+    healthy = fs.statSync(credsFile).size > 0 && !!JSON.parse(fs.readFileSync(credsFile, 'utf8'));
+  } catch (_) {}
+  if (!healthy && fs.existsSync(credsBackup)) {
+    try {
+      if (fs.statSync(credsBackup).size > 0) {
+        JSON.parse(fs.readFileSync(credsBackup, 'utf8'));
+        fs.copyFileSync(credsBackup, credsFile);
+      }
+    } catch (_) {}
+  }
+}
+
+const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+const sock = makeWASocket({
+  auth: state,
+  markOnlineOnConnect: false,
+  syncFullHistory: false,
+  logger: pino({ level: 'silent' })
+});
+currentSock = sock;
 
 const commands = new Map();
 const cmdPath = path.join(__dirname, 'commands');
@@ -63,19 +115,80 @@ try{ const cmd = require(`./commands/${file}`); commands.set(cmd.name, cmd); }ca
 });
 }
 
-sock.ev.on('creds.update', saveCreds);
+sock.ev.on('creds.update', async (creds) => {
+  await saveCreds(creds);
+  // Keep only parseable backups; a zero-byte backup cannot recover a session.
+  try {
+    const raw = fs.readFileSync(credsFile, 'utf8');
+    JSON.parse(raw);
+    const tmp = `${credsBackup}.tmp`;
+    fs.writeFileSync(tmp, raw);
+    fs.renameSync(tmp, credsBackup);
+  } catch (_) {}
+});
 sock.ev.on('connection.update', async (update) => {
   const time = moment().tz("Africa/Lagos").format("HH:mm:ss");
+  if (update.qr) qrcode.generate(update.qr, { small: true });
   if(update.connection === "open"){
+    if (myGeneration !== botGeneration) return;
+    authFailureStreak = 0;
     console.log(chalk.green(`✅ [${time}] E TECH OFC Connected`));
     console.log(chalk.green(`✅ Protected Owners: ${PROTECTED_OWNER_NUMS.join(" & ")}`));
     try {
-      if(!channelJID){ const meta = await sock.newsletterMetadata("invite", channelInviteCode); channelJID = meta.id; }
+      if (!channelJID) {
+        const meta = await sock.newsletterMetadata("invite", channelInviteCode);
+        channelJID = meta?.id || meta?.jid || meta?.newsletter?.id;
+      }
+      if (!channelJID) throw new Error('channel metadata did not contain a valid JID');
       await sock.newsletterFollow(channelJID);
       console.log(chalk.cyan("✅ Auto-followed E TECH OFC channel"));
-    } catch(e){ console.log(e.message) }
+    } catch(e){ console.log(chalk.yellow(`⚠️ Channel follow skipped: ${e.message}`)); }
   }
-  if(update.connection === "close" && update.lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
+  if(update.connection === "close"){
+    if (myGeneration !== botGeneration) return;
+
+    const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+    const errorMessage = update.lastDisconnect?.error?.message || 'unknown error';
+    const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+    // `registered` is not reliable during/after phone-number pairing. These
+    // fields are the durable signs that WhatsApp accepted the device.
+    const creds = state.creds || {};
+    const isAuthenticated = !!(
+      creds.me?.id &&
+      creds.registrationId != null &&
+      creds.signedIdentityKey
+    );
+
+    if (isLoggedOut && isAuthenticated) authFailureStreak++;
+    else if (!isLoggedOut) authFailureStreak = 0;
+
+    // Never destroy an in-progress pairing for ordinary handshake/restart
+    // closes. A registered session needs repeated 401/logged-out failures
+    // before it is considered genuinely revoked.
+    const canDiscard = isLoggedOut && (
+      !isAuthenticated || authFailureStreak >= AUTH_FAILURE_LIMIT
+    );
+
+    if (canDiscard) {
+      authFailureStreak = 0;
+      try {
+        if (fs.existsSync(credsFile)) fs.rmSync(credsFile);
+        if (fs.existsSync(credsBackup)) fs.rmSync(credsBackup);
+      } catch (error) {
+        console.log(chalk.red(`Could not clear credentials: ${error.message}`));
+      }
+      console.log(chalk.yellow(`🔐 Pairing reset (${isAuthenticated ? 'session logged out' : 'pairing incomplete'}: ${statusCode || errorMessage})`));
+      scheduleRestart(3000, 'fresh pairing code/QR');
+      return;
+    }
+
+    if ([408, 503, 515].includes(statusCode)) {
+      console.log(chalk.yellow(`Connection closed (${statusCode}); preserving auth and reconnecting`));
+    } else {
+      console.log(chalk.yellow(`Connection closed (${statusCode || errorMessage}); preserving auth and reconnecting`));
+    }
+    scheduleRestart(3000, `server close ${statusCode || errorMessage}`);
+  }
 });
 
 sock.ev.on('call', async (calls) => {
@@ -87,6 +200,8 @@ sock.ev.on('call', async (calls) => {
 sock.ev.on('messages.upsert', async ({ messages }) => {
 const m = messages[0];
 if(!m.message || m.key.fromMe) return;
+m.chat = m.key.remoteJid;
+if (!m.chat) return;
 
 let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
 const sender = m.key.participant || m.key.remoteJid;
@@ -111,7 +226,17 @@ if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
 if(!body.startsWith(settings.prefix)) return;
 const args = body.slice(settings.prefix.length).trim().split(/ +/);
 const cmdName = args.shift().toLowerCase();
-if(commands.has(cmdName)){ await commands.get(cmdName).execute(sock, m, args, settings); }
+if(commands.has(cmdName)){
+  try {
+    await commands.get(cmdName).execute(sock, m, args, settings);
+  } catch (error) {
+    console.log(chalk.red(`Command .${cmdName} failed: ${error.message}`));
+    await sock.sendMessage(m.chat, { text: `❌ Command failed: ${error.message}` }, { quoted: m }).catch(() => {});
+  }
+}
 });
 }
-startBot();
+startBot().catch(error => {
+  console.log(chalk.red(`Startup failed: ${error.message}`));
+  scheduleRestart(3000, 'startup failure');
+});
