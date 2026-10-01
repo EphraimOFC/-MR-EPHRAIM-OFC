@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState } = require('@sasa-dev/void-baileys');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
