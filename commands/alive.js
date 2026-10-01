@@ -6,30 +6,31 @@ const text = `
 │ ╎ ╎ ╎
 │ ╎ ☆°•.✦
 │ ✠
-✦ E TECH OFC ○○─𝄞
+✦ *E TECH OFC* ○○─𝄞
 
 ──────────────────❖
-│ 👋 I AM ALIVE NOW
+│ 👋 *I AM ALIVE NOW*
 ──────────────────❖
 
 ──────────────────❖
-│ OWNER - MR EPHRAIM OFC
-│ VERSION - 5.2.0
-│ COMMANDS - 103
-│ PREFIX - [. ]
-│ ACTIVE BOTS - 2993
-│ WEB - etechofc.vercel.app
-│ MEDIA - ${settings.ownerNumber}
+│ 👑 OWNER - MR EPHRAIM OFC
+│ 📞 MAIN - 2347072956206
+│ 📞 BACKUP - 2348108717744
+│ 🚀 VERSION - 2.0.0
+│ 📜 COMMANDS - 103
+│ ⚙️ PREFIX - [ ${settings.prefix} ]
+│ 🤖 ACTIVE - 24/7 ONLINE
+│ 🌐 WEB - ${settings.botLink}
 ──────────────────❖
 
-╭─「 Reply Number ⤵️ 」
+╭─「 *Reply Number* ⤵️ 」
 │ 1️⃣ MAIN MENU
 │ 2️⃣ CREATE BOT
 │ 3️⃣ CHECK PING
 ╰─────────────────❖
 
-> etechofc.vercel.app </> Powered by E TECH OFC
+> ${settings.footer}
 `;
-await sock.sendMessage(m.chat, { image: { url: settings.aliveImage }, caption: text }, { quoted: m });
+await sock.sendMessage(m.key.remoteJid, { image: { url: settings.aliveImage }, caption: text }, { quoted: m });
 }
 }
