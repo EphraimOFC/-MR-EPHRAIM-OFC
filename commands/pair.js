@@ -1,6 +1,7 @@
 const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
+const pino = require('pino');
 
 module.exports = {
 name: "pair",
@@ -12,16 +13,17 @@ if(number.length < 10) return sock.sendMessage(m.chat, { text: "❌ Invalid numb
 
 await sock.sendMessage(m.chat, { text: `⏳ Generating pair code for ${number}...\nUsing temp/ folder - your main session safe...` }, { quoted: m });
 
+let tempPath;
 try {
   const tempId = `temp/${Date.now()}_${number}`;
-  const tempPath = path.join(__dirname, '..', tempId);
+  tempPath = path.join(__dirname, '..', tempId);
   fs.mkdirSync(tempPath, { recursive: true });
 
   const { state, saveCreds } = await useMultiFileAuthState(tempPath);
   const tempSock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    logger: { level: 'silent' },
+    logger: pino({ level: 'silent' }),
     browser: ["E TECH OFC", "Chrome", "1.0.0"]
   });
 
@@ -29,7 +31,8 @@ try {
   await new Promise(r => setTimeout(r, 3000));
 
   let code = await tempSock.requestPairingCode(number);
-  code = code.match(/.{1,4}/g).join("-");
+  code = String(code).replace(/\s/g, '').match(/.{1,4}/g)?.join('-');
+  if (!code) throw new Error('WhatsApp did not return a pairing code');
 
   await sock.sendMessage(m.chat, {
     image: { url: settings.menuImage },
@@ -37,12 +40,14 @@ try {
   }, { quoted: m });
 
   // Auto-delete temp after 70s - MAIN BOT session/ still online with 2347072956206
-  setTimeout(() => {
+  setTimeout(async () => {
+    try { await tempSock.end(undefined, undefined, { reason: 'pairing window expired' }); } catch {}
     try { fs.rmSync(tempPath, { recursive: true, force: true }); } catch {}
   }, 70000);
 
 } catch(e){
   console.log(e);
+  try { fs.rmSync(tempPath, { recursive: true, force: true }); } catch {}
   await sock.sendMessage(m.chat, { text: `❌ Failed: ${e.message}\nTry again after 2 mins.` }, { quoted: m });
 }
 }
