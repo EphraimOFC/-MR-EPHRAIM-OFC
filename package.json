@@ -1,17 +1,36 @@
 {
-  "name": "ephraim-swift-md",
+  "name": "e-tech-ofc",
   "main": "index.js",
-  "version": "1.0.0",
-  "description": "EPHRAIM SWIFT MD RedQueen Edition by MR EPHRAIM OFC",
-  "author": "MR EPHRAIM OFC",
-  "scripts": { 
-    "start": "node index.js" 
+  "version": "2.0.0",
+  "description": "E TECH OFC - Powerful WhatsApp Bot by MR EPHRAIM OFC",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
+  "keywords": [
+    "whatsapp bot",
+    "e-tech-ofc",
+    "baileys",
+    "bot md"
+  ],
+  "author": "MR EPHRAIM OFC",
+  "license": "MIT",
   "dependencies": {
-    "@sasa-dev/void-baileys": "^1.0.2",
-    "pino": "^8.17.0",
+    "@ryuu-reinzz/button-helper": "^2.2.3",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "acrcloud": "^1.4.0",
+    "axios": "^1.7.2",
+    "chalk": "^4.1.2",
     "dotenv": "^16.3.1",
-    "axios": "^1.6.2",
-    "yt-search": "^2.10.3"
+    "file-type": "^16.5.4",
+    "moment-timezone": "^0.5.45",
+    "pino": "^8.17.0",
+    "qrcode-terminal": "^0.12.0",
+    "youtubei.js": "^15.0.0",
+    "yt-search": "^2.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
