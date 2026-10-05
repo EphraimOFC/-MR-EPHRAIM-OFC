@@ -32,13 +32,13 @@ global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.j
 global.banned = fs.existsSync('./banned.json')? JSON.parse(fs.readFileSync('./banned.json')) : [];
 
 const subMenus = {
-"1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.privacy 🔵\n│.setting ⚙️\n│.getdp 🥰\n│.csong 🎵\n│.forward 💯\n│.setsudo 👑\n│.delsudo 🚫\n│.setcall 📞\n│.delcall 🔓\n│.ban 🔨\n│.unban ✅\n│.boost 🚀\n│.doboost 🔥\n│.rboost ❤️\n╰───◐\n> ${settings.footer}`,
-"2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.song 🎧\n│.video 📹\n│.fb 📘\n│.tiktok 🎵\n│.insta 📸\n│.twitter 🐦\n│.movie 🎬\n│.apk 📱\n│.img 🖼️\n╰───◐\n> ${settings.footer}`,
-"3": `╭───◐\n│ 🤖 AI MENU\n│.ai 💬\n│.gpt 🧠\n│.imagine 🎨\n│.gemini ✨\n╰───◐\n> ${settings.footer}`,
-"4": `╭───◐\n│ 👥 GROUP MENU\n│.add ➕.kick 👢.promote 👑.demote 🔻.tagall 👥.hidetag 👁️.open 🔓.close 🔒\n╰───◐\n> ${settings.footer}`,
-"5": `╭───◐\n│ 🛠️ TOOLS MENU\n│.ping 📶.alive 🖐️.menu 🌍.sticker 🏷️.toimg 🖼️\n╰───◐\n> ${settings.footer}`,
-"6": `╭───◐\n│ 📚 EDUCATION MENU\n│.define 📖.translate 🌐.wikipedia 📚\n╰───◐\n> ${settings.footer}`,
-"7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n> ${settings.footer}`
+"1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.privacy 🔵\n│.setting ⚙️\n│.getdp 🥰\n│.csong 🎵\n│.forward 💯\n│.setsudo 👑\n│.delsudo 🚫\n│.setcall 📞\n│.delcall 🔓\n│.ban 🔨\n│.unban ✅\n│.boost 🚀\n│.doboost 🔥\n│.rboost ❤️\n╰───◐\n${settings.footer}`,
+"2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.song 🎧\n│.video 📹\n│.fb 📘\n│.tiktok 🎵\n│.insta 📸\n│.twitter 🐦\n│.movie 🎬\n│.apk 📱\n│.img 🖼️\n╰───◐\n${settings.footer}`,
+"3": `╭───◐\n│ 🤖 AI MENU\n│.ai 💬\n│.gpt 🧠\n│.imagine 🎨\n│.gemini ✨\n╰───◐\n${settings.footer}`,
+"4": `╭───◐\n│ 👥 GROUP MENU\n│.add ➕.kick 👢.promote 👑.demote 🔻.tagall 👥.hidetag 👁️.open 🔓.close 🔒\n╰───◐\n${settings.footer}`,
+"5": `╭───◐\n│ 🛠️ TOOLS MENU\n│.ping 📶.alive 🖐️.menu 🌍.sticker 🏷️.toimg 🖼️\n╰───◐\n${settings.footer}`,
+"6": `╭───◐\n│ 📚 EDUCATION MENU\n│.define 📖.translate 🌐.wikipedia 📚\n╰───◐\n${settings.footer}`,
+"7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n${settings.footer}`
 };
 
 let currentSock = null;
@@ -187,7 +187,6 @@ m.chat = m.key.remoteJid;
 if (!m.chat) return;
 
 let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || "";
-// Also handle interactive response
 if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
  try{
    let p = JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson)
@@ -200,7 +199,7 @@ const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOw
 if(body){
   const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
   if(isTargetingProtected && (body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".kick") || body.startsWith(".remove") || body.startsWith(".del"))){
-    await sock.sendMessage(m.key.remoteJid, { text: `🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\nProtected:\n• Main: 2347072956206\n• Backup: 2348108717744\n\n> ${settings.footer}` }, { quoted: m });
+    await sock.sendMessage(m.key.remoteJid, { text: `🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\nProtected:\n• Main: 2347072956206\n• Backup: 2348108717744\n\n${settings.footer}` }, { quoted: m });
     return;
   }
 }
@@ -210,21 +209,18 @@ if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
   return;
 }
 
-// ===== FIX 1: SUBMENU 1-7 =====
 let cleanBody = body.trim();
 if (subMenus[cleanBody]) {
   await sock.sendMessage(m.chat, { text: subMenus[cleanBody] }, { quoted: m }).catch(()=>{});
   return;
 }
-// Handle song reply 1 or 2 even without prefix
 if((cleanBody === "1" || cleanBody === "2" || cleanBody.toLowerCase() === "audio" || cleanBody.toLowerCase() === "doc" || cleanBody.toLowerCase() === "document" || cleanBody.startsWith("etech_")) && commands.has("song")){
   try{
     await sock.sendPresenceUpdate('composing', m.chat);
-    // support both styles of song.js
     let songCmd = commands.get("song");
-    if(songCmd.execute.length <= 2){ // old style execute(m, {conn,text,args})
+    if(songCmd.execute.length <= 2){
       await songCmd.execute(m, { conn: sock, text: cleanBody, args: [cleanBody] });
-    } else { // new style execute(sock,m,args,settings)
+    } else {
       await songCmd.execute(sock, m, [cleanBody], settings);
     }
     return;
@@ -233,7 +229,6 @@ if((cleanBody === "1" || cleanBody === "2" || cleanBody.toLowerCase() === "audio
 
 if(!body.startsWith(settings.prefix)) return;
 
-// ===== FAST REACT LIKE MONEY HEIST =====
 try{
   await sock.sendPresenceUpdate('composing', m.chat);
   if(global.creact){
@@ -246,12 +241,9 @@ const cmdName = args.shift().toLowerCase();
 if(commands.has(cmdName)){
   try {
     let cmd = commands.get(cmdName);
-    // Support BOTH command formats (fixes your song.js crash)
     if(cmd.execute.length <= 2){
-      // format: execute(m, {conn, text, args})
       await cmd.execute(m, { conn: sock, text: args.join(" "), args });
     } else {
-      // format: execute(sock, m, args, settings)
       await cmd.execute(sock, m, args, settings);
     }
   } catch (error) {
