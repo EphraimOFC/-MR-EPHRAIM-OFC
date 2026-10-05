@@ -14,26 +14,16 @@ try { buttonHelper = require('@ryuu-reinzz/button-helper'); } catch(e){}
 const channelInviteCode = settings.channelInviteCode;
 const channelLink = settings.channelLink;
 let channelJID = null;
-const followedUsers = new Set();
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// 🔒 OWNER PROTECTION - E TECH OFC - MAIN + BACKUP BOTH PROTECTED
+// 🔒 OWNER PROTECTION
 const PROTECTED_OWNER_NUMS = ["2347072956206", "2348108717744"];
-
-const protectedOwners = PROTECTED_OWNER_NUMS.flatMap(num => [
-  `${num}@s.whatsapp.net`,
-  `${num}@lid`,
-  `${num}@c.us`
-]);
-
 function isRealOwner(jid){
   if(!jid) return false;
-  return PROTECTED_OWNER_NUMS.some(num => jid.includes(num));
+  return PROTECTED_OWNER_NUMS.some(num => jid && jid.includes(num));
 }
 
-// ===== API KEY DIRECT =====
 const API_KEY = "chama_api_f42172169b62b947022925d936ac987f";
-
 global.privacyMode = global.privacyMode || "public";
 global.antiviewonce = true;
 global.anticall = false;
@@ -51,7 +41,6 @@ const subMenus = {
 "7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n> ${settings.footer}`
 };
 
-// Keep reconnects single-flight
 let currentSock = null;
 let pendingRestart = null;
 let botGeneration = 0;
@@ -74,7 +63,6 @@ if (currentSock) {
 }
 const myGeneration = ++botGeneration;
 
-// ===== SESSION_ID SUPPORT - FIX FOR RENDER 405 =====
 try {
   if (process.env.SESSION_ID) {
     const sessionFolderTmp = path.resolve(settings.sessionName);
@@ -82,7 +70,7 @@ try {
     const credsFileTmp = path.join(sessionFolderTmp, 'creds.json');
     console.log(chalk.cyan("📥 Checking SESSION_ID..."));
     let sessionUrl = process.env.SESSION_ID.trim();
-    if (sessionUrl.includes('pastebin.com') && !sessionUrl.includes('/raw/')) {
+    if (sessionUrl.includes('pastebin.com') &&!sessionUrl.includes('/raw/')) {
       sessionUrl = sessionUrl.replace('pastebin.com/', 'pastebin.com/raw/');
     }
     const res = await axios.get(sessionUrl, { timeout: 15000 });
@@ -91,14 +79,13 @@ try {
       try { data = JSON.parse(data); } catch(e) {}
     }
     if (data) {
-      fs.writeFileSync(credsFileTmp, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+      fs.writeFileSync(credsFileTmp, typeof data === 'string'? data : JSON.stringify(data, null, 2));
       console.log(chalk.green("✅ Session loaded from SESSION_ID"));
     }
   }
 } catch (e) {
   console.log(chalk.red("❌ Failed to load SESSION_ID: " + e.message));
 }
-// ===== END SESSION_ID SUPPORT =====
 
 const sessionFolder = path.resolve(settings.sessionName);
 const credsFile = path.join(sessionFolder, 'creds.json');
@@ -107,7 +94,7 @@ const credsBackup = `${credsFile}.bak`;
 if (fs.existsSync(credsFile)) {
   let healthy = false;
   try {
-    healthy = fs.statSync(credsFile).size > 0 && !!JSON.parse(fs.readFileSync(credsFile, 'utf8'));
+    healthy = fs.statSync(credsFile).size > 0 &&!!JSON.parse(fs.readFileSync(credsFile, 'utf8'));
   } catch (_) {}
   if (!healthy && fs.existsSync(credsBackup)) {
     try {
@@ -133,7 +120,7 @@ const cmdPath = path.join(__dirname, 'commands');
 if(fs.existsSync(cmdPath)){
 fs.readdirSync(cmdPath).forEach(file => {
 if(file.endsWith('.js')){
-try{ const cmd = require(`./commands/${file}`); commands.set(cmd.name, cmd); }catch(e){ console.log(chalk.red("Failed "+file+": "+e.message)) }
+try{ const cmd = require(`./commands/${file}`); commands.set(cmd.name, cmd); if(cmd.alias){ cmd.alias.forEach(a=>commands.set(a,cmd)) } }catch(e){ console.log(chalk.red("Failed "+file+": "+e.message)) }
 }
 });
 }
@@ -148,11 +135,12 @@ sock.ev.on('creds.update', async (creds) => {
     fs.renameSync(tmp, credsBackup);
   } catch (_) {}
 });
+
 sock.ev.on('connection.update', async (update) => {
   const time = moment().tz("Africa/Lagos").format("HH:mm:ss");
   if (update.qr) qrcode.generate(update.qr, { small: true });
   if(update.connection === "open"){
-    if (myGeneration !== botGeneration) return;
+    if (myGeneration!== botGeneration) return;
     authFailureStreak = 0;
     console.log(chalk.green(`✅ [${time}] E TECH OFC Connected`));
     console.log(chalk.green(`✅ Protected Owners: ${PROTECTED_OWNER_NUMS.join(" & ")}`));
@@ -167,43 +155,21 @@ sock.ev.on('connection.update', async (update) => {
     } catch(e){ console.log(chalk.yellow(`⚠️ Channel follow skipped: ${e.message}`)); }
   }
   if(update.connection === "close"){
-    if (myGeneration !== botGeneration) return;
-
+    if (myGeneration!== botGeneration) return;
     const statusCode = update.lastDisconnect?.error?.output?.statusCode;
     const errorMessage = update.lastDisconnect?.error?.message || 'unknown error';
     const isLoggedOut = statusCode === DisconnectReason.loggedOut;
     const creds = state.creds || {};
-    const isAuthenticated = !!(
-      creds.me?.id &&
-      creds.registrationId != null &&
-      creds.signedIdentityKey
-    );
-
-    if (isLoggedOut && isAuthenticated) authFailureStreak++;
-    else if (!isLoggedOut) authFailureStreak = 0;
-
-    const canDiscard = isLoggedOut && (
-      !isAuthenticated || authFailureStreak >= AUTH_FAILURE_LIMIT
-    );
-
+    const isAuthenticated =!!(creds.me?.id && creds.registrationId!= null && creds.signedIdentityKey);
+    if (isLoggedOut && isAuthenticated) authFailureStreak++; else if (!isLoggedOut) authFailureStreak = 0;
+    const canDiscard = isLoggedOut && (!isAuthenticated || authFailureStreak >= AUTH_FAILURE_LIMIT);
     if (canDiscard) {
       authFailureStreak = 0;
-      try {
-        if (fs.existsSync(credsFile)) fs.rmSync(credsFile);
-        if (fs.existsSync(credsBackup)) fs.rmSync(credsBackup);
-      } catch (error) {
-        console.log(chalk.red(`Could not clear credentials: ${error.message}`));
-      }
-      console.log(chalk.yellow(`🔐 Pairing reset (${isAuthenticated ? 'session logged out' : 'pairing incomplete'}: ${statusCode || errorMessage})`));
-      scheduleRestart(3000, 'fresh pairing code/QR');
-      return;
+      try { if (fs.existsSync(credsFile)) fs.rmSync(credsFile); if (fs.existsSync(credsBackup)) fs.rmSync(credsBackup); } catch (error) { console.log(chalk.red(`Could not clear credentials: ${error.message}`)); }
+      console.log(chalk.yellow(`🔐 Pairing reset (${isAuthenticated? 'session logged out' : 'pairing incomplete'}: ${statusCode || errorMessage})`));
+      scheduleRestart(3000, 'fresh pairing code/QR'); return;
     }
-
-    if ([408, 503, 515].includes(statusCode)) {
-      console.log(chalk.yellow(`Connection closed (${statusCode}); preserving auth and reconnecting`));
-    } else {
-      console.log(chalk.yellow(`Connection closed (${statusCode || errorMessage}); preserving auth and reconnecting`));
-    }
+    console.log(chalk.yellow(`Connection closed (${statusCode || errorMessage}); preserving auth and reconnecting`));
     scheduleRestart(3000, `server close ${statusCode || errorMessage}`);
   }
 });
@@ -220,16 +186,21 @@ if(!m.message || m.key.fromMe) return;
 m.chat = m.key.remoteJid;
 if (!m.chat) return;
 
-let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
+let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || "";
+// Also handle interactive response
+if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
+ try{
+   let p = JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson)
+   if(p.id) body = p.id
+ }catch{}
+}
 const sender = m.key.participant || m.key.remoteJid;
-const isOwner = isRealOwner(sender) || global.sudo?.includes(sender);
+const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOwner(m.chat);
 
 if(body){
   const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
   if(isTargetingProtected && (body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".kick") || body.startsWith(".remove") || body.startsWith(".del"))){
-    await sock.sendMessage(m.key.remoteJid, {
-      text: `🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\nProtected:\n• Main: 2347072956206\n• Backup: 2348108717744\n\n> ${settings.footer}`
-    }, { quoted: m });
+    await sock.sendMessage(m.key.remoteJid, { text: `🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\nProtected:\n• Main: 2347072956206\n• Backup: 2348108717744\n\n> ${settings.footer}` }, { quoted: m });
     return;
   }
 }
@@ -239,14 +210,52 @@ if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
   return;
 }
 
+// ===== FIX 1: SUBMENU 1-7 =====
+let cleanBody = body.trim();
+if (subMenus[cleanBody]) {
+  await sock.sendMessage(m.chat, { text: subMenus[cleanBody] }, { quoted: m }).catch(()=>{});
+  return;
+}
+// Handle song reply 1 or 2 even without prefix
+if((cleanBody === "1" || cleanBody === "2" || cleanBody.toLowerCase() === "audio" || cleanBody.toLowerCase() === "doc" || cleanBody.toLowerCase() === "document" || cleanBody.startsWith("etech_")) && commands.has("song")){
+  try{
+    await sock.sendPresenceUpdate('composing', m.chat);
+    // support both styles of song.js
+    let songCmd = commands.get("song");
+    if(songCmd.execute.length <= 2){ // old style execute(m, {conn,text,args})
+      await songCmd.execute(m, { conn: sock, text: cleanBody, args: [cleanBody] });
+    } else { // new style execute(sock,m,args,settings)
+      await songCmd.execute(sock, m, [cleanBody], settings);
+    }
+    return;
+  }catch(e){ console.log("song fallback err", e.message) }
+}
+
 if(!body.startsWith(settings.prefix)) return;
+
+// ===== FAST REACT LIKE MONEY HEIST =====
+try{
+  await sock.sendPresenceUpdate('composing', m.chat);
+  if(global.creact){
+    await sock.sendMessage(m.chat, { react: { text: "⚡", key: m.key } }).catch(()=>{});
+  }
+}catch{}
+
 const args = body.slice(settings.prefix.length).trim().split(/ +/);
 const cmdName = args.shift().toLowerCase();
 if(commands.has(cmdName)){
   try {
-    await commands.get(cmdName).execute(sock, m, args, settings);
+    let cmd = commands.get(cmdName);
+    // Support BOTH command formats (fixes your song.js crash)
+    if(cmd.execute.length <= 2){
+      // format: execute(m, {conn, text, args})
+      await cmd.execute(m, { conn: sock, text: args.join(" "), args });
+    } else {
+      // format: execute(sock, m, args, settings)
+      await cmd.execute(sock, m, args, settings);
+    }
   } catch (error) {
-    console.log(chalk.red(`Command .${cmdName} failed: ${error.message}`));
+    console.log(chalk.red(`Command.${cmdName} failed: ${error.message}`));
     await sock.sendMessage(m.chat, { text: `❌ Command failed: ${error.message}` }, { quoted: m }).catch(() => {});
   }
 }
