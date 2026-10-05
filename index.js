@@ -51,22 +51,20 @@ const subMenus = {
 "7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n> ${settings.footer}`
 };
 
-// Keep reconnects single-flight. A socket can emit close while a scheduled
-// restart is already replacing it; without this guard two sockets can race on
-// the same auth files.
+// Keep reconnects single-flight
 let currentSock = null;
 let pendingRestart = null;
 let botGeneration = 0;
 let authFailureStreak = 0;
 const AUTH_FAILURE_LIMIT = 3;
 
-function scheduleRestart(delay, reason) {
+function scheduleRestart(delayMs, reason) {
   if (pendingRestart) return;
   pendingRestart = setTimeout(() => {
     pendingRestart = null;
     console.log(chalk.yellow(`🔄 Reconnecting (${reason})...`));
     startBot().catch(error => console.log(chalk.red(`Reconnect failed: ${error.message}`)));
-  }, delay);
+  }, delayMs);
 }
 
 async function startBot() {
@@ -75,12 +73,37 @@ if (currentSock) {
   currentSock = null;
 }
 const myGeneration = ++botGeneration;
+
+// ===== SESSION_ID SUPPORT - FIX FOR RENDER 405 =====
+try {
+  if (process.env.SESSION_ID) {
+    const sessionFolderTmp = path.resolve(settings.sessionName);
+    if (!fs.existsSync(sessionFolderTmp)) fs.mkdirSync(sessionFolderTmp, { recursive: true });
+    const credsFileTmp = path.join(sessionFolderTmp, 'creds.json');
+    console.log(chalk.cyan("📥 Checking SESSION_ID..."));
+    let sessionUrl = process.env.SESSION_ID.trim();
+    if (sessionUrl.includes('pastebin.com') && !sessionUrl.includes('/raw/')) {
+      sessionUrl = sessionUrl.replace('pastebin.com/', 'pastebin.com/raw/');
+    }
+    const res = await axios.get(sessionUrl, { timeout: 15000 });
+    let data = res.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch(e) {}
+    }
+    if (data) {
+      fs.writeFileSync(credsFileTmp, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+      console.log(chalk.green("✅ Session loaded from SESSION_ID"));
+    }
+  }
+} catch (e) {
+  console.log(chalk.red("❌ Failed to load SESSION_ID: " + e.message));
+}
+// ===== END SESSION_ID SUPPORT =====
+
 const sessionFolder = path.resolve(settings.sessionName);
 const credsFile = path.join(sessionFolder, 'creds.json');
 const credsBackup = `${credsFile}.bak`;
 
-// Recover a complete backup if the process was interrupted while Baileys was
-// writing creds.json.
 if (fs.existsSync(credsFile)) {
   let healthy = false;
   try {
@@ -117,7 +140,6 @@ try{ const cmd = require(`./commands/${file}`); commands.set(cmd.name, cmd); }ca
 
 sock.ev.on('creds.update', async (creds) => {
   await saveCreds(creds);
-  // Keep only parseable backups; a zero-byte backup cannot recover a session.
   try {
     const raw = fs.readFileSync(credsFile, 'utf8');
     JSON.parse(raw);
@@ -150,8 +172,6 @@ sock.ev.on('connection.update', async (update) => {
     const statusCode = update.lastDisconnect?.error?.output?.statusCode;
     const errorMessage = update.lastDisconnect?.error?.message || 'unknown error';
     const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-    // `registered` is not reliable during/after phone-number pairing. These
-    // fields are the durable signs that WhatsApp accepted the device.
     const creds = state.creds || {};
     const isAuthenticated = !!(
       creds.me?.id &&
@@ -162,9 +182,6 @@ sock.ev.on('connection.update', async (update) => {
     if (isLoggedOut && isAuthenticated) authFailureStreak++;
     else if (!isLoggedOut) authFailureStreak = 0;
 
-    // Never destroy an in-progress pairing for ordinary handshake/restart
-    // closes. A registered session needs repeated 401/logged-out failures
-    // before it is considered genuinely revoked.
     const canDiscard = isLoggedOut && (
       !isAuthenticated || authFailureStreak >= AUTH_FAILURE_LIMIT
     );
@@ -207,7 +224,6 @@ let body = m.message.conversation || m.message.extendedTextMessage?.text || "";
 const sender = m.key.participant || m.key.remoteJid;
 const isOwner = isRealOwner(sender) || global.sudo?.includes(sender);
 
-// 🛡️ OWNER NUMBER PROTECTION - BOTH MAIN + BACKUP
 if(body){
   const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
   if(isTargetingProtected && (body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".kick") || body.startsWith(".remove") || body.startsWith(".del"))){
