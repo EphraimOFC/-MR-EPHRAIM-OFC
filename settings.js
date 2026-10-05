@@ -2,13 +2,11 @@ module.exports = {
   botName: "E TECH OFC",
   ownerName: "MR EPHRAIM OFC",
 
-  // 🔒 MAIN + BACKUP — BOTH FULLY PROTECTED
   ownerNumber: "2347072956206",
   ownerNumbers: ["2347072956206", "2348108717744"],
   protectedNumbers: ["2347072956206", "2348108717744"],
   backupNumber: "2348108717744",
 
-  // Protection flags
   ownerNumberProtection: true,
   botNumberProtection: true,
   antiDeleteOwner: true,
@@ -16,7 +14,7 @@ module.exports = {
   antiKickOwner: true,
 
   prefix: ".",
-  footer: "etechofc.vercel.app </> Powered by E TECH OFC",
+  footer: "👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*",
   
   menuImage: "https://files.catbox.moe/nx66nl.jpeg",
   aliveImage: "https://files.catbox.moe/nx66nl.jpeg",
@@ -27,6 +25,6 @@ module.exports = {
   channelLink: "https://whatsapp.com/channel/0029VbCrylkDp2Q0MbaKpp16",
   channelInviteCode: "0029VbCrylkDp2Q0MbaKpp16",
   
-  pairWebsite: "https://etechofc.vercel.app",
-  botLink: "https://etechofc.vercel.app"
+  pairWebsite: "https://e-tech-ofc-pair-1.onrender.com",
+  botLink: "https://e-tech-ofc-pair-1.onrender.com"
 }
