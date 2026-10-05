@@ -27,7 +27,7 @@ const API_KEY = "chama_api_f42172169b62b947022925d936ac987f";
 global.privacyMode = global.privacyMode || "public";
 global.antiviewonce = true;
 global.anticall = false;
-global.creact = false;
+global.creact = true;
 global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.json')) : [];
 global.banned = fs.existsSync('./banned.json')? JSON.parse(fs.readFileSync('./banned.json')) : [];
 
