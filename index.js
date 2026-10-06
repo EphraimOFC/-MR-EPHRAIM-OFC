@@ -111,6 +111,7 @@ const sock = makeWASocket({
   auth: state,
   markOnlineOnConnect: false,
   syncFullHistory: false,
+  emitOwnEvents: true,
   logger: pino({ level: 'silent' })
 });
 currentSock = sock;
