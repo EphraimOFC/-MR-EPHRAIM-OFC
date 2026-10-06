@@ -17,7 +17,6 @@
   "author": "MR EPHRAIM OFC",
   "license": "MIT",
   "dependencies": {
-    "@ryuu-reinzz/button-helper": "^2.2.3",
     "@whiskeysockets/baileys": "^6.7.18",
     "acrcloud": "^1.4.0",
     "axios": "^1.7.2",
