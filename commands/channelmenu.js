@@ -24,7 +24,7 @@ const text = `
 │ 2️⃣ FOLLOW CHANNEL
 ╰───◐
 
-> etechofc.vercel.app </> Powered by E TECH OFC
+${settings.footer}
 `;
 
 await sock.sendMessage(m.chat, {
