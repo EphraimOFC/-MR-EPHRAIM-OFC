@@ -27,7 +27,7 @@ const text = `
 ${settings.footer}
 `;
 
-await sock.sendMessage(m.chat, {
+try { await sock.sendMessage(m.chat, {
   image: { url: settings.menuImage },
   caption: text,
   contextInfo: {
