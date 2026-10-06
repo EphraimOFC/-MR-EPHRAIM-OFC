@@ -1,0 +1,1 @@
+module.exports={name:"setcall",execute:async(sock,m,a,s)=>{if(!m.key.remoteJid) return; const v=(a[0]||"on").toLowerCase(); if(!["on","off"].includes(v)) return sock.sendMessage(m.chat,{text:"Use .setcall on/off"},{quoted:m}); global.anticall=v==="on"; await sock.sendMessage(m.chat,{text:`📞 AntiCall is now *${global.anticall?"ON":"OFF"}*\\n\\n${s.footer}`},{quoted:m});}};
