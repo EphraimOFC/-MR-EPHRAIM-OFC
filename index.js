@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadContentFromMessage, jidNormalizedUser } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
@@ -320,7 +320,13 @@ async function handleMessage(m){
     return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!\nOwner: ' + PROTECTED_OWNER_NUMS.join(' & ') }, { quoted:m }).catch(()=>{});
   }
   if(subMenus[body]) return sock.sendMessage(m.chat, { text: subMenus[body] }, { quoted:m }).catch(()=>{});
-  if((body === '1' || body === '2' || body.toLowerCase() === 'audio' || body.toLowerCase() === 'doc' || body.toLowerCase() === 'document' || body.startsWith('etech_')) && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
+
+  // Only accept our native song button IDs. Bare "1"/"2" replies from other bots/users
+  // must never trigger E TECH song downloads.
+  if(body.startsWith('etech_') && commands.has('song')){
+    return runCommand(commands.get('song'), m, [body]);
+  }
+
   if(!body.startsWith(settings.prefix)) return;
   const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
   const cmdName = (parts.shift() || '').toLowerCase();
