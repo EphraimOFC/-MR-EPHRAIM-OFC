@@ -1,17 +1,15 @@
 module.exports = {
-name: "ping",
-execute: async (sock, m, args, settings) => {
-  const start = Date.now();
-  const msg = await sock.sendMessage(m.key.remoteJid, { text: "*Pinging E TECH OFC...* ⚡" }, { quoted: m });
-  const latency = Date.now() - start;
-  const uptime = process.uptime();
-  const hours = Math.floor(uptime / 3600);
-  const mins = Math.floor((uptime % 3600) / 60);
-  const secs = Math.floor(uptime % 60);
+  name: "ping",
+  execute: async (sock, m, args, settings) => {
+    const start = Date.now()
+    const uptime = process.uptime()
+    const hours = Math.floor(uptime / 3600)
+    const mins = Math.floor((uptime % 3600) / 60)
+    const secs = Math.floor(uptime % 60)
 
-  const text = `
+    const text = `
 ╭───◐ *E TECH OFC PING* ◐───
-│ ⚡ *Speed:* ${latency}ms
+│ ⚡ *Speed:* ${Date.now() - start}ms
 │ ⏱️ *Uptime:* ${hours}h ${mins}m ${secs}s
 │ 🤖 *Bot:* E TECH OFC V2.0
 │ 👑 *Owner:* MR EPHRAIM OFC
@@ -20,9 +18,8 @@ execute: async (sock, m, args, settings) => {
 ╰───◐
 ✅ *Active & Stable*
 
-${settings.footer}
-  `;
+${settings.footer}`
 
-  await sock.sendMessage(m.key.remoteJid, { text: text, edit: msg.key }, { quoted: m });
-}
+    await sock.sendMessage(m.chat, { text }, { quoted: m })
+  }
 }
