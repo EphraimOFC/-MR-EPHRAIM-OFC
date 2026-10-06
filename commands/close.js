@@ -1,7 +1,7 @@
 module.exports = {
   name: "close",
   execute: async (sock, m, args, settings) => {
-    if (!m.chat.endsWith("@g.us")) return m.reply("❌ This command is for groups only!");
+    if (!m.chat.endsWith("@g.us")) return sock.sendMessage(m.chat,{text:"❌ This command is for groups only!"},{quoted:m});
 
     const groupMetadata = await sock.groupMetadata(m.chat);
     const participants = groupMetadata.participants;
@@ -10,8 +10,8 @@ module.exports = {
     const isSenderAdmin = participants.find(p => p.id === sender)?.admin;
     const isOwner = sender === "2347072956206@s.whatsapp.net";
 
-    if (!isBotAdmin) return m.reply("❌ Bot must be admin!");
-    if (!isSenderAdmin &&!isOwner) return m.reply("❌ Only group admin can use this!");
+    if (!isBotAdmin) return sock.sendMessage(m.chat,{text:"❌ Bot must be admin!"},{quoted:m});
+    if (!isSenderAdmin && !isOwner) return sock.sendMessage(m.chat,{text:"❌ Only group admin can use this!"},{quoted:m});
 
     await sock.groupSettingUpdate(m.chat, 'announcement');
     await sock.sendMessage(m.chat, { text: `🔒 *Group Closed*\n\nOnly admins can send messages now.\n\n> ${settings.footer}` }, { quoted: m });
