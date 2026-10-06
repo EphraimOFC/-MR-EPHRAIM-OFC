@@ -30,7 +30,7 @@ const text = `
 │ 🤖 E TECH OFC V2.0
 ╰───◐
 
-> ${settings.footer}`;
+${settings.footer}`;
 await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
 }
 }
