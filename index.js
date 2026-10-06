@@ -8,9 +8,6 @@ const chalk = require('chalk');
 const moment = require('moment-timezone');
 const settings = require('./settings');
 
-let buttonHelper;
-try { buttonHelper = require('@ryuu-reinzz/button-helper'); } catch(e){}
-
 const channelInviteCode = settings.channelInviteCode;
 const channelLink = settings.channelLink;
 let channelJID = null;
@@ -126,8 +123,16 @@ function loadCommands(){
     try{
       const cmd = require(path.join(cmdPath, file));
       if(!cmd?.name || typeof cmd.execute !== 'function') continue;
-      commands.set(String(cmd.name).toLowerCase(), cmd);
-      for(const alias of (cmd.alias || [])) commands.set(String(alias).toLowerCase(), cmd);
+      const name = String(cmd.name).toLowerCase();
+      if(commands.has(name)){
+        console.log(chalk.yellow('⚠️ Duplicate command skipped: ' + name + ' (' + file + ')'));
+        continue;
+      }
+      commands.set(name, cmd);
+      for(const alias of (cmd.alias || [])){
+        const key = String(alias).toLowerCase();
+        if(!commands.has(key)) commands.set(key, cmd);
+      }
     }catch(e){ console.log(chalk.red('Failed '+file+': '+e.message)); }
   }
 }
