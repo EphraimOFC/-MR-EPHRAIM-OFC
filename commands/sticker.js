@@ -24,10 +24,10 @@ module.exports = {
     const source = quoted || m;
     const msg = source?.message || {};
     const type = Object.keys(msg).find(k => ['imageMessage','videoMessage','documentMessage'].includes(k));
-    if(!type) return sock.sendMessage(m.chat,{text:`❌ Reply to an image/video with .sticker`},{quoted:m});
+    if(!type) return sock.sendMessage(m.chat,{text:'❌ Reply to an image/video with .sticker'},{quoted:m});
 
     const media = msg[type];
-    if(type === 'documentMessage' && !/^image\\//.test(media.mimetype||'') && !/^video\\//.test(media.mimetype||'')){
+    if(type === 'documentMessage' && !/^image\//.test(media.mimetype||'') && !/^video\//.test(media.mimetype||'')){
       return sock.sendMessage(m.chat,{text:'❌ Only image or video media can be converted to sticker.'},{quoted:m});
     }
 
@@ -47,7 +47,7 @@ module.exports = {
       fs.writeFileSync(input, buffer);
 
       const vf = 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000';
-      const argsFF = type === 'imageMessage' || (type === 'documentMessage' && /^image\\//.test(media.mimetype||''))
+      const argsFF = type === 'imageMessage' || (type === 'documentMessage' && /^image\//.test(media.mimetype||''))
         ? ['-y','-i',input,'-vf',vf,'-frames:v','1','-c:v','libwebp','-q:v','80',output]
         : ['-y','-i',input,'-t','6','-vf',vf+',fps=12','-c:v','libwebp','-q:v','70','-loop','0',output];
 
@@ -58,7 +58,7 @@ module.exports = {
       if(!fs.existsSync(output)) throw new Error('FFmpeg did not create sticker');
       await sock.sendMessage(m.chat,{sticker:fs.readFileSync(output)},{quoted:m});
     }catch(e){
-      await sock.sendMessage(m.chat,{text:`❌ Sticker failed: ${e.message}\\nMake sure FFmpeg is installed and available in PATH.`},{quoted:m}).catch(()=>{});
+      await sock.sendMessage(m.chat,{text:`❌ Sticker failed: ${e.message}\nMake sure FFmpeg is installed and available in PATH.`},{quoted:m}).catch(()=>{});
     }finally{
       for(const file of [input,output]){ try{fs.unlinkSync(file)}catch{} }
     }
