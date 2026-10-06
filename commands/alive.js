@@ -29,7 +29,7 @@ const text = `
 │ 3️⃣ CHECK PING
 ╰─────────────────❖
 
-> ${settings.footer}
+${settings.footer}
 `;
 await sock.sendMessage(m.key.remoteJid, { image: { url: settings.aliveImage }, caption: text }, { quoted: m });
 }
