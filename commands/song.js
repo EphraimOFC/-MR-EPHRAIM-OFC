@@ -17,12 +17,29 @@ module.exports = {
      await conn.sendMessage(m.chat, { text: `⬇️ Downloading *${videoData.title}*...` }, { quoted: m })
      let fileName=path.join(__dirname, `../tmp/${id}.mp3`); let dir=path.dirname(fileName); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
      let ytdlpCmd=`yt-dlp -x --audio-format mp3 --no-playlist -o "${fileName}" "${videoData.url}"`;
-     exec(ytdlpCmd, async (err) => {
-      if(err ||!fs.existsSync(fileName)){ await conn.sendMessage(m.chat, { text: "❌ Download failed on server. Install yt-dlp + ffmpeg on host." }, { quoted: m }); return false }
-      if(type==='audio'){ await conn.sendMessage(m.chat, { audio: fs.readFileSync(fileName), mimetype: 'audio/mpeg' }, { quoted: m }) }
-      else{ await conn.sendMessage(m.chat, { document: fs.readFileSync(fileName), mimetype: 'audio/mpeg', fileName: `${videoData.title}.mp3` }, { quoted: m }) }
-      try{ fs.unlinkSync(fileName) }catch{}; let ns=getStore(); delete ns[id]; saveStore(ns); return true;
-     }); return
+     const downloadResult = await new Promise((resolve) => {
+      exec(ytdlpCmd, async (err) => {
+       if(err || !fs.existsSync(fileName)){
+        await conn.sendMessage(m.chat, { text: "❌ Download failed on server. Install yt-dlp + ffmpeg on host." }, { quoted: m });
+        return resolve(false);
+       }
+       try{
+        if(type==='audio'){
+         await conn.sendMessage(m.chat, { audio: fs.readFileSync(fileName), mimetype: 'audio/mpeg' }, { quoted: m });
+        } else {
+         await conn.sendMessage(m.chat, { document: fs.readFileSync(fileName), mimetype: 'audio/mpeg', fileName: `${videoData.title}.mp3` }, { quoted: m });
+        }
+        return resolve(true);
+       }catch(error){
+        await conn.sendMessage(m.chat, { text: "❌ Could not send downloaded song: " + error.message }, { quoted: m }).catch(()=>{});
+        return resolve(false);
+       }finally{
+        try{ fs.unlinkSync(fileName) }catch{}
+        let ns=getStore(); delete ns[id]; saveStore(ns);
+       }
+      });
+     });
+     return downloadResult;; return
   }
   if(!query){ await conn.sendMessage(m.chat, { text: "🎵 Example:.song Seyi Vibez - Chance" }, { quoted: m }); return false }
   let search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
