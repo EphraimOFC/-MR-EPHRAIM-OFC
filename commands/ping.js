@@ -20,7 +20,7 @@ execute: async (sock, m, args, settings) => {
 ╰───◐
 ✅ *Active & Stable*
 
-> ${settings.footer}
+${settings.footer}
   `;
 
   await sock.sendMessage(m.key.remoteJid, { text: text, edit: msg.key }, { quoted: m });
