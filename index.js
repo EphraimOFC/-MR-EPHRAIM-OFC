@@ -105,6 +105,8 @@ ${settings.footer}`,
 ${settings.footer}`
 };
 
+const menuReplyUntil = new Map();
+
 let currentSock = null;
 let pendingRestart = null;
 let botGeneration = 0;
@@ -305,7 +307,14 @@ async function handleMessage(m){
   if(/^\.(tagall|hidetag)\b/i.test(body) && !isOwner){
     return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!' }, { quoted:m }).catch(()=>{});
   }
-  if(subMenus[body]) return sock.sendMessage(m.chat, { text: subMenus[body] }, { quoted:m }).catch(()=>{});
+  if(/^\d$/.test(body)){
+    const expiresAt = menuReplyUntil.get(m.chat) || 0;
+    if(expiresAt > Date.now() && subMenus[body]){
+      menuReplyUntil.delete(m.chat);
+      return sock.sendMessage(m.chat, { text: subMenus[body] }, { quoted:m }).catch(()=>{});
+    }
+    return;
+  }
   if(body.startsWith('etech_') && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
   if(!body.startsWith(settings.prefix)) return;
   const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
@@ -320,6 +329,7 @@ async function runCommand(cmd, m, args){
   try{
     const text = args.join(' ');
     const result = cmd.execute.length <= 2 ? await cmd.execute(m, { conn:sock, text, args }) : await cmd.execute(sock, m, args, settings);
+    if(String(cmd.name || '').toLowerCase() === 'menu') menuReplyUntil.set(m.chat, Date.now() + 120000);
     if(global.creact){
       const reaction = String(cmd.name || '').toLowerCase() === 'alive' ? '🌍' : result === false ? '❌' : '✅';
       sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{});
