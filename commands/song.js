@@ -2,7 +2,6 @@ const yts = require('yt-search')
 const { exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
-const { sendInteractiveMessage } = require('@ryuu-reinzz/button-helper')
 const storePath = path.join(__dirname, '../tmp/song_store.json')
 function getStore(){ try{ if(fs.existsSync(storePath)) return JSON.parse(fs.readFileSync(storePath)); return {} }catch{ return {} } }
 function saveStore(d){ let dir=path.dirname(storePath); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(storePath, JSON.stringify(d)) }
@@ -29,25 +28,23 @@ module.exports = {
   let search = await yts(query + " song"); if(!search.videos.length) return await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m })
   let video=search.videos[0]; let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
   let caption=`*🎵 E TECH SONG DOWNLOADER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n\n${conn.user.name || "E TECH OFC"}\n\n${require('../settings').footer}`
-  await sendInteractiveMessage(conn, m.chat, {
-    text: caption + "\\n\\n*Choose format 👇*",
-    footer: require('../settings').footer,
-    interactiveButtons: [
+  await conn.sendMessage(m.chat, {
+    image: { url: video.thumbnail },
+    caption: caption,
+    footer: "Choose format 👇",
+    buttons: [
       {
-        name: 'quick_reply',
-        buttonParamsJson: JSON.stringify({
-          display_text: '🎧 AUDIO',
-          id: `etech_audio_${videoId}`
-        })
+        buttonId: `etech_audio_${videoId}`,
+        buttonText: { displayText: "🎧 AUDIO" },
+        type: 1
       },
       {
-        name: 'quick_reply',
-        buttonParamsJson: JSON.stringify({
-          display_text: '📁 DOCUMENT',
-          id: `etech_doc_${videoId}`
-        })
+        buttonId: `etech_doc_${videoId}`,
+        buttonText: { displayText: "📁 DOCUMENT" },
+        type: 1
       }
-    ]
+    ],
+    headerType: 4
   }, { quoted: m })
  }
 }
