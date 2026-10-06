@@ -28,9 +28,7 @@ execute: async (sock, m, args, settings) => {
 ╰───◐
 ╭───◐
 │ 👑 *MR EPHRAIM OFC*
-│ 📞 *2347072956206 (Main)*
-│ 📞 *2348108717744 (Backup)*
-│ 🔒 *Both Protected*
+│ 📱 *Account: Current connected WhatsApp*
 ╰───◐
 
 ${settings.footer}`;
