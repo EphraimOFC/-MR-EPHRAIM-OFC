@@ -259,10 +259,12 @@ async function runCommand(cmd, m, args){
     const result = cmd.execute.length <= 2
       ? await cmd.execute(m, { conn:sock, text, args })
       : await cmd.execute(sock, m, args, settings);
-    const reaction = String(cmd.name || '').toLowerCase() === 'alive'
-      ? '🌍'
-      : result === false ? '❌' : '✅';
-    sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{});
+    if(global.creact){
+      const reaction = String(cmd.name || '').toLowerCase() === 'alive'
+        ? '🌍'
+        : result === false ? '❌' : '✅';
+      sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{});
+    }
     return result;
   }catch(error){
     console.log(chalk.red('Command failed: ' + (cmd.name || 'unknown') + ': ' + error.message));
