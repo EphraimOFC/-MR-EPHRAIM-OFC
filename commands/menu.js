@@ -32,7 +32,7 @@ const text = `
 │ 7️⃣ CHANNEL MENU
 ╰───◐
 
-> ${settings.footer}
+${settings.footer}
 `;
 await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
 }
