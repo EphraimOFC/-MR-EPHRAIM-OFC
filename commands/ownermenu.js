@@ -7,7 +7,7 @@ execute: async (sock, m, args, settings) => {
   
   if(!isOwner){
     return await sock.sendMessage(m.key.remoteJid, { 
-      text: `❌ *OWNER ONLY*\n\nOnly E TECH OFC Owner can use this!\n\n👑 Owner: MR EPHRAIM OFC\n📞 Main: 2347072956206\n📞 Backup: 2348108717744\n\n> ${settings.footer}` 
+      text: `❌ *OWNER ONLY*\n\nOnly E TECH OFC Owner can use this!\n\n👑 Owner: MR EPHRAIM OFC\n📞 Main: 2347072956206\n📞 Backup: 2348108717744\n\n${settings.footer}` 
     }, { quoted: m });
   }
 
@@ -36,7 +36,7 @@ execute: async (sock, m, args, settings) => {
 │ 🔒 *Both Protected*
 ╰───◐
 
-> ${settings.footer}`;
+${settings.footer}`;
 
   await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
 }
