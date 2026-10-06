@@ -17,7 +17,7 @@ const text = `
 │ 📞 MAIN - 2347072956206
 │ 📞 BACKUP - 2348108717744
 │ 🚀 VERSION - E TECH V2.0
-│ 📜 COMMANDS - ${total}
+│ 📜 COMMAND MODULES - ${total}
 │ ⚙️ PREFIX - [ ${settings.prefix} ]
 │ 🌐 WEB - ${settings.botLink}
 ╰───◐
