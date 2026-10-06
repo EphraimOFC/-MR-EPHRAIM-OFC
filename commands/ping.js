@@ -13,8 +13,6 @@ module.exports = {
 │ ⏱️ *Uptime:* ${hours}h ${mins}m ${secs}s
 │ 🤖 *Bot:* E TECH OFC V2.0
 │ 👑 *Owner:* MR EPHRAIM OFC
-│ 📞 *Main:* 2347072956206
-│ 📞 *Backup:* 2348108717744
 ╰───◐
 ✅ *Active & Stable*
 
