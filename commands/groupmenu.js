@@ -13,12 +13,7 @@ const text = `
 │ 🔻 .demote @user - Demote
 │ 🔓 .open - Open Group
 │ 🔒 .close - Close Group
-│ 🔗 .link - Group Link
-│ 🔄 .revoke - Revoke Link
-│ 📝 .setname - Set Name
-│ 📄 .setdesc - Set Desc
-│ 🚫 .antilink on/off
-│ 🤖 .antibot on/off
+│ 🚪 .leave - Leave Group
 ╰───◐
 ╭───◐ *PROTECTION* 🛡️
 │ 🔒 2347072956206 - Main Protected
