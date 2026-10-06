@@ -1,7 +1,7 @@
 module.exports = {
 name: "menu",
 execute: async (sock, m, args, settings) => {
-const total = 103;
+const total = 55;
 const text = `
 ╭─○
 │ ╎ *E TECH OFC* ✦
