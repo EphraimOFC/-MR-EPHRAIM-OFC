@@ -16,8 +16,8 @@ module.exports = {
   aliveImage: "https://files.catbox.moe/nx66nl.jpeg",
   sessionName: "session",
   tempDir: "temp",
-  channelLink: "https://whatsapp.com/channel/0029VbCrylkDp2Q0MbaKpp16",
-  channelInviteCode: "0029VbCrylkDp2Q0MbaKpp16",
+  channelLink: "https://whatsapp.com/channel/0029VbCrylk2Q0MbaKpp16",
+  channelInviteCode: "0029VbCrylk2Q0MbaKpp16",
   pairWebsite: "https://e-tech-ofc-pair-1.onrender.com",
   botLink: "https://e-tech-ofc-pair-1.onrender.com"
 }
