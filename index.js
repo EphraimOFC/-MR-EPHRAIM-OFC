@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
@@ -29,6 +29,7 @@ global.anticall = false;
 global.creact = true;
 global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.json')) : [];
 global.banned = fs.existsSync('./banned.json')? JSON.parse(fs.readFileSync('./banned.json')) : [];
+global.reactEmojis = global.reactEmojis || ['⚡','🔥','❤️','💯','😍','🤩','😎','👑','✨','🚀','🎯','😂','🥶','🫡'];
 
 const subMenus = {
 "1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.privacy 🔵\n│.setting ⚙️\n│.getdp 🥰\n│.csong 🎵\n│.forward 💯\n│.setsudo 👑\n│.delsudo 🚫\n│.setcall 📞\n│.delcall 🔓\n│.ban 🔨\n│.unban ✅\n│.boost 🚀\n│.doboost 🔥\n│.rboost ❤️\n╰───◐\n${settings.footer}`,
@@ -191,8 +192,32 @@ sock.ev.on('messages.upsert', ({ messages }) => {
   }
 });
 
+async function handleViewOnce(m){
+  if(!global.antiviewonce || !m?.message || m.key?.fromMe) return false;
+  const wrapped = m.message.viewOnceMessage?.message || m.message.viewOnceMessageV2?.message || m.message.viewOnceMessageV2Extension?.message;
+  if(!wrapped) return false;
+  const type = Object.keys(wrapped).find(k => ['imageMessage','videoMessage','audioMessage'].includes(k));
+  if(!type) return false;
+  try{
+    const media = wrapped[type];
+    const stream = await downloadContentFromMessage(media, type.replace('Message',''));
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
+    const caption = media.caption ? `\n\n${media.caption}` : '';
+    if(type === 'imageMessage') await sock.sendMessage(m.key.remoteJid, { image: buffer, caption: '👁️ *Anti-ViewOnce*'+caption }, { quoted:m });
+    if(type === 'videoMessage') await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: '👁️ *Anti-ViewOnce*'+caption }, { quoted:m });
+    if(type === 'audioMessage') await sock.sendMessage(m.key.remoteJid, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted:m });
+    return true;
+  }catch(error){
+    console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message));
+    return false;
+  }
+}
+
 async function handleMessage(m){
-  if(!m?.message || m.key?.fromMe) return;
+  if(!m?.message) return;
+  if(await handleViewOnce(m)) return;
   m.chat = m.key.remoteJid;
   if(!m.chat) return;
   let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || '';
@@ -203,6 +228,12 @@ async function handleMessage(m){
   if(!body) return;
   const sender = m.key.participant || m.key.remoteJid;
   const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOwner(m.chat);
+  const chatIsGroup = m.chat.endsWith('@g.us');
+  const chatIsPrivate = m.chat.endsWith('@s.whatsapp.net');
+  if(global.banned?.includes(sender) && !isOwner) return;
+  if(global.privacyMode === 'private' && !isOwner) return;
+  if(global.privacyMode === 'group' && !chatIsGroup && !isOwner) return;
+  if(global.privacyMode === 'pc' && !chatIsPrivate && !isOwner) return;
   const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
   if(isTargetingProtected && /^(\.ban|\.block|\.kick|\.remove|\.del)\b/i.test(body)){
     return sock.sendMessage(m.chat, { text: '🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\n' + PROTECTED_OWNER_NUMS.map(n => '• '+n).join('\n') + '\n\n' + settings.footer }, { quoted:m }).catch(()=>{});
@@ -217,7 +248,7 @@ async function handleMessage(m){
   const cmdName = (parts.shift() || '').toLowerCase();
   const cmd = commands.get(cmdName);
   if(!cmd) return;
-  if(global.creact) sock.sendMessage(m.chat, { react:{ text:'⚡', key:m.key } }).catch(()=>{});
+  if(global.creact) { const reaction = global.reactEmojis[Math.floor(Math.random() * global.reactEmojis.length)]; sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{}); }
   sock.sendPresenceUpdate('composing', m.chat).catch(()=>{});
   return runCommand(cmd, m, parts);
 }
