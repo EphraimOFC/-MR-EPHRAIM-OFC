@@ -69,7 +69,7 @@ async function sendSongButtons(conn, m, caption, thumbnail, videoId) {
    }
   ]
  };
- const additionalNodes = m.chat.endsWith('@g.us')
+ const additionalNodes = isJidGroup(m.chat)
   ? [bizNode]
   : [{ tag: 'bot', attrs: { biz_bot: '1' } }, bizNode];
  await conn.relayMessage(m.chat, msg.message, {
@@ -122,7 +122,7 @@ module.exports = {
     await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
   } catch (error) {
     console.log('Native song buttons failed: ' + error.message)
-    await conn.sendMessage(m.chat, { text: `${caption}\n\n🎧 Audio: reply *audio*\n📁 Document: reply *document*` }, { quoted: m })
+    await conn.sendMessage(m.chat, { text: `${caption}\n\n⚠️ Buttons could not be delivered. Please run the song command again.` }, { quoted: m })
   }
   return true
  }
