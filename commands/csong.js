@@ -1,0 +1,1 @@
+const song=require('./song.js'); module.exports={name:"csong",execute:(sock,m,a,s)=>song.execute(m,{conn:sock,text:a.join(" "),args:a})};
