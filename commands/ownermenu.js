@@ -1,13 +1,13 @@
 module.exports = {
 name: "ownermenu",
 execute: async (sock, m, args, settings) => {
-  const PROTECTED = ["2347072956206", "2348108717744"];
+  const PROTECTED = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);
   const sender = m.key.participant || m.key.remoteJid;
   const isOwner = PROTECTED.some(num => sender.includes(num));
   
   if(!isOwner){
     return await sock.sendMessage(m.key.remoteJid, { 
-      text: `❌ *OWNER ONLY*\n\nOnly E TECH OFC Owner can use this!\n\n👑 Owner: MR EPHRAIM OFC\n📞 Main: 2347072956206\n📞 Backup: 2348108717744\n\n${settings.footer}` 
+      text: `❌ *OWNER ONLY*\n\nOnly E TECH OFC Owner can use this!\n\n👑 Owner: MR EPHRAIM OFC\n📱 Account: Current connected WhatsApp\n\n${settings.footer}` 
     }, { quoted: m });
   }
 
