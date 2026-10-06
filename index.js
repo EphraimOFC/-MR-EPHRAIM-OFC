@@ -249,7 +249,6 @@ async function handleMessage(m){
   const cmdName = (parts.shift() || '').toLowerCase();
   const cmd = commands.get(cmdName);
   if(!cmd) return;
-  if(global.creact) { const reaction = global.reactEmojis[Math.floor(Math.random() * global.reactEmojis.length)]; sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{}); }
   sock.sendPresenceUpdate('composing', m.chat).catch(()=>{});
   return runCommand(cmd, m, parts);
 }
@@ -257,10 +256,17 @@ async function handleMessage(m){
 async function runCommand(cmd, m, args){
   try{
     const text = args.join(' ');
-    if(cmd.execute.length <= 2) return await cmd.execute(m, { conn:sock, text, args });
-    return await cmd.execute(sock, m, args, settings);
+    const result = cmd.execute.length <= 2
+      ? await cmd.execute(m, { conn:sock, text, args })
+      : await cmd.execute(sock, m, args, settings);
+    const reaction = String(cmd.name || '').toLowerCase() === 'alive'
+      ? '🌍'
+      : result === false ? '❌' : '✅';
+    sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{});
+    return result;
   }catch(error){
     console.log(chalk.red('Command failed: ' + (cmd.name || 'unknown') + ': ' + error.message));
+    sock.sendMessage(m.chat, { react:{ text:'❌', key:m.key } }).catch(()=>{});
     await sock.sendMessage(m.chat, { text:'❌ Command failed: ' + error.message }, { quoted:m }).catch(()=>{});
   }
 }
