@@ -18,9 +18,9 @@ const text = `
 │ • Pairing Codes 🔗
 ╰───◐
 
-╭─「 Reply Number ⬇️ 」
-│ 1️⃣ MAIN MENU
-│ 2️⃣ FOLLOW CHANNEL
+╭─「 CHANNEL ACTIONS ⬇️ 」
+│ • Use the link above to follow
+│ • Use .menu for the main menu
 ╰───◐
 
 ${settings.footer}
