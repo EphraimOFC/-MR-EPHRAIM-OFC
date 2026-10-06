@@ -23,7 +23,6 @@ function isRealOwner(jid){
   return PROTECTED_OWNER_NUMS.some(num => jid && jid.includes(num));
 }
 
-const API_KEY = "chama_api_f42172169b62b947022925d936ac987f";
 global.privacyMode = global.privacyMode || "public";
 global.antiviewonce = true;
 global.anticall = false;
@@ -117,14 +116,20 @@ currentSock = sock;
 
 const commands = new Map();
 const cmdPath = path.join(__dirname, 'commands');
-if(fs.existsSync(cmdPath)){
-fs.readdirSync(cmdPath).forEach(file => {
-if(file.endsWith('.js')){
-try{ const cmd = require(`./commands/${file}`); commands.set(cmd.name, cmd); if(cmd.alias){ cmd.alias.forEach(a=>commands.set(a,cmd)) } }catch(e){ console.log(chalk.red("Failed "+file+": "+e.message)) }
+function loadCommands(){
+  commands.clear();
+  if(!fs.existsSync(cmdPath)) return;
+  for(const file of fs.readdirSync(cmdPath)){
+    if(!file.endsWith('.js')) continue;
+    try{
+      const cmd = require(path.join(cmdPath, file));
+      if(!cmd?.name || typeof cmd.execute !== 'function') continue;
+      commands.set(String(cmd.name).toLowerCase(), cmd);
+      for(const alias of (cmd.alias || [])) commands.set(String(alias).toLowerCase(), cmd);
+    }catch(e){ console.log(chalk.red('Failed '+file+': '+e.message)); }
+  }
 }
-});
-}
-
+loadCommands();
 sock.ev.on('creds.update', async (creds) => {
   await saveCreds(creds);
   try {
@@ -180,78 +185,54 @@ sock.ev.on('call', async (calls) => {
  }
 });
 
-sock.ev.on('messages.upsert', async ({ messages }) => {
-const m = messages[0];
-if(!m.message || m.key.fromMe) return;
-m.chat = m.key.remoteJid;
-if (!m.chat) return;
-
-let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || "";
-if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
- try{
-   let p = JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson)
-   if(p.id) body = p.id
- }catch{}
-}
-const sender = m.key.participant || m.key.remoteJid;
-const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOwner(m.chat);
-
-if(body){
-  const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
-  if(isTargetingProtected && (body.startsWith(".ban") || body.startsWith(".block") || body.startsWith(".kick") || body.startsWith(".remove") || body.startsWith(".del"))){
-    await sock.sendMessage(m.key.remoteJid, { text: `🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\nProtected:\n• Main: 2347072956206\n• Backup: 2348108717744\n\n${settings.footer}` }, { quoted: m });
-    return;
+sock.ev.on('messages.upsert', ({ messages }) => {
+  for (const m of messages || []) {
+    handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
   }
-}
-
-if((body.includes(".tagall") || body.includes(".hidetag")) &&!isOwner){
-  await sock.sendMessage(m.key.remoteJid, { text: `❌ Only Owner can use this!\nOwner: 2347072956206 & 2348108717744` }, { quoted: m });
-  return;
-}
-
-let cleanBody = body.trim();
-if (subMenus[cleanBody]) {
-  await sock.sendMessage(m.chat, { text: subMenus[cleanBody] }, { quoted: m }).catch(()=>{});
-  return;
-}
-if((cleanBody === "1" || cleanBody === "2" || cleanBody.toLowerCase() === "audio" || cleanBody.toLowerCase() === "doc" || cleanBody.toLowerCase() === "document" || cleanBody.startsWith("etech_")) && commands.has("song")){
-  try{
-    await sock.sendPresenceUpdate('composing', m.chat);
-    let songCmd = commands.get("song");
-    if(songCmd.execute.length <= 2){
-      await songCmd.execute(m, { conn: sock, text: cleanBody, args: [cleanBody] });
-    } else {
-      await songCmd.execute(sock, m, [cleanBody], settings);
-    }
-    return;
-  }catch(e){ console.log("song fallback err", e.message) }
-}
-
-if(!body.startsWith(settings.prefix)) return;
-
-try{
-  await sock.sendPresenceUpdate('composing', m.chat);
-  if(global.creact){
-    await sock.sendMessage(m.chat, { react: { text: "⚡", key: m.key } }).catch(()=>{});
-  }
-}catch{}
-
-const args = body.slice(settings.prefix.length).trim().split(/ +/);
-const cmdName = args.shift().toLowerCase();
-if(commands.has(cmdName)){
-  try {
-    let cmd = commands.get(cmdName);
-    if(cmd.execute.length <= 2){
-      await cmd.execute(m, { conn: sock, text: args.join(" "), args });
-    } else {
-      await cmd.execute(sock, m, args, settings);
-    }
-  } catch (error) {
-    console.log(chalk.red(`Command.${cmdName} failed: ${error.message}`));
-    await sock.sendMessage(m.chat, { text: `❌ Command failed: ${error.message}` }, { quoted: m }).catch(() => {});
-  }
-}
 });
+
+async function handleMessage(m){
+  if(!m?.message || m.key?.fromMe) return;
+  m.chat = m.key.remoteJid;
+  if(!m.chat) return;
+  let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || '';
+  if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
+    try { const p=JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson); if(p.id) body=p.id; } catch {}
+  }
+  body = String(body || '').trim();
+  if(!body) return;
+  const sender = m.key.participant || m.key.remoteJid;
+  const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOwner(m.chat);
+  const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
+  if(isTargetingProtected && /^(\.ban|\.block|\.kick|\.remove|\.del)\b/i.test(body)){
+    return sock.sendMessage(m.chat, { text: '🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\n' + PROTECTED_OWNER_NUMS.map(n => '• '+n).join('\n') + '\n\n' + settings.footer }, { quoted:m }).catch(()=>{});
+  }
+  if(/^\.(tagall|hidetag)\b/i.test(body) && !isOwner){
+    return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!\nOwner: ' + PROTECTED_OWNER_NUMS.join(' & ') }, { quoted:m }).catch(()=>{});
+  }
+  if(subMenus[body]) return sock.sendMessage(m.chat, { text: subMenus[body] }, { quoted:m }).catch(()=>{});
+  if((body === '1' || body === '2' || body.toLowerCase() === 'audio' || body.toLowerCase() === 'doc' || body.toLowerCase() === 'document' || body.startsWith('etech_')) && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
+  if(!body.startsWith(settings.prefix)) return;
+  const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
+  const cmdName = (parts.shift() || '').toLowerCase();
+  const cmd = commands.get(cmdName);
+  if(!cmd) return;
+  if(global.creact) sock.sendMessage(m.chat, { react:{ text:'⚡', key:m.key } }).catch(()=>{});
+  sock.sendPresenceUpdate('composing', m.chat).catch(()=>{});
+  return runCommand(cmd, m, parts);
+}
+
+async function runCommand(cmd, m, args){
+  try{
+    const text = args.join(' ');
+    if(cmd.execute.length <= 2) return await cmd.execute(m, { conn:sock, text, args });
+    return await cmd.execute(sock, m, args, settings);
+  }catch(error){
+    console.log(chalk.red('Command failed: ' + (cmd.name || 'unknown') + ': ' + error.message));
+    await sock.sendMessage(m.chat, { text:'❌ Command failed: ' + error.message }, { quoted:m }).catch(()=>{});
+  }
+}
+
 }
 startBot().catch(error => {
   console.log(chalk.red(`Startup failed: ${error.message}`));
