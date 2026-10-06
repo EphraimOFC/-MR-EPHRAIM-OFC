@@ -17,7 +17,7 @@ const text = `
 │ 📞 MAIN - 2347072956206
 │ 📞 BACKUP - 2348108717744
 │ 🚀 VERSION - 2.0.0
-│ 📜 COMMANDS - 103
+│ 📜 COMMANDS - 55
 │ ⚙️ PREFIX - [ ${settings.prefix} ]
 │ 🤖 ACTIVE - 24/7 ONLINE
 │ 🌐 WEB - ${settings.botLink}
