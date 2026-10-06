@@ -31,6 +31,6 @@ const text = `
 
 ${settings.footer}
 `;
-await sock.sendMessage(m.key.remoteJid, { image: { url: settings.aliveImage }, caption: text }, { quoted: m });
+try { await sock.sendMessage(m.key.remoteJid, { image: { url: settings.aliveImage }, caption: text }, { quoted: m }); } catch (e) { console.log('Alive image failed: '+e.message); await sock.sendMessage(m.key.remoteJid, { text }, { quoted: m }); }
 }
 }
