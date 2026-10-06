@@ -1,3 +1,4 @@
+const axios = require('axios');
 module.exports = {
 name: "menu",
 execute: async (sock, m, args, settings) => {
