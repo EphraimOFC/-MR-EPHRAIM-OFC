@@ -1,10 +1,83 @@
 const yts = require('yt-search')
 const { exec } = require('child_process')
+const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = require('@whiskeysockets/baileys')
 const fs = require('fs')
 const path = require('path')
 const storePath = path.join(__dirname, '../tmp/song_store.json')
 function getStore(){ try{ if(fs.existsSync(storePath)) return JSON.parse(fs.readFileSync(storePath)); return {} }catch{ return {} } }
 function saveStore(d){ let dir=path.dirname(storePath); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(storePath, JSON.stringify(d)) }
+async function sendSongButtons(conn, m, caption, thumbnail, videoId) {
+ const media = await prepareWAMessageMedia(
+  { image: { url: thumbnail } },
+  { upload: conn.waUploadToServer }
+ );
+ const buttons = [
+  proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
+   name: 'quick_reply',
+   buttonParamsJson: JSON.stringify({ display_text: '🎧 AUDIO', id: `etech_audio_${videoId}` })
+  }),
+  proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
+   name: 'quick_reply',
+   buttonParamsJson: JSON.stringify({ display_text: '📁 DOCUMENT', id: `etech_doc_${videoId}` })
+  })
+ ];
+ const interactiveMessage = proto.Message.InteractiveMessage.create({
+  header: proto.Message.InteractiveMessage.Header.create({
+   title: '🎵 E TECH SONG DOWNLOADER',
+   hasMediaAttachment: true,
+   ...media
+  }),
+  body: proto.Message.InteractiveMessage.Body.create({ text: caption }),
+  footer: proto.Message.InteractiveMessage.Footer.create({ text: 'Choose format 👇' }),
+  nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+   buttons,
+   messageParamsJson: '{}',
+   messageVersion: 1
+  })
+ });
+ const msg = generateWAMessageFromContent(
+  m.chat,
+  {
+   viewOnceMessage: {
+    message: {
+     messageContextInfo: {
+      deviceListMetadata: {},
+      deviceListMetadataVersion: 2
+     },
+     interactiveMessage
+    }
+   }
+  },
+  { quoted: m, userJid: conn.user.id }
+ );
+ const bizNode = {
+  tag: 'biz',
+  attrs: {
+   actual_actors: '2',
+   host_storage: '2',
+   privacy_mode_ts: String(Math.floor(Date.now() / 1000) - 77980457)
+  },
+  content: [
+   {
+    tag: 'interactive',
+    attrs: { type: 'native_flow', v: '1' },
+    content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }]
+   },
+   {
+    tag: 'quality_control',
+    attrs: { source_type: 'third_party' }
+   }
+  ]
+ };
+ const additionalNodes = m.chat.endsWith('@g.us')
+  ? [bizNode]
+  : [{ tag: 'bot', attrs: { biz_bot: '1' } }, bizNode];
+ await conn.relayMessage(m.chat, msg.message, {
+  messageId: msg.key.id,
+  additionalNodes
+ });
+}
+
 module.exports = {
  name: "song", alias: ["play","music","s"],
  async execute(m, { conn, text, args }) {
@@ -45,24 +118,7 @@ module.exports = {
   let search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
   let video=search.videos[0]; let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
   let caption=`*🎵 E TECH SONG DOWNLOADER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n\n${conn.user.name || "E TECH OFC"}\n\n${require('../settings').footer}`
-  await conn.sendMessage(m.chat, {
-    image: { url: video.thumbnail },
-    caption: caption,
-    footer: "Choose format 👇",
-    buttons: [
-      {
-        buttonId: `etech_audio_${videoId}`,
-        buttonText: { displayText: "🎧 AUDIO" },
-        type: 1
-      },
-      {
-        buttonId: `etech_doc_${videoId}`,
-        buttonText: { displayText: "📁 DOCUMENT" },
-        type: 1
-      }
-    ],
-    headerType: 4
-  }, { quoted: m })
+  await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
   return true
  }
 }
