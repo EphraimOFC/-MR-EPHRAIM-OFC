@@ -1,9 +1,10 @@
 const axios = require('axios');
+
 module.exports = {
-name: "menu",
-execute: async (sock, m, args, settings) => {
-const total = 55;
-const text = `
+  name: "menu",
+  execute: async (sock, m, args, settings) => {
+    const total = 55;
+    const text = `
 ╭─○
 │ ╎ *E TECH OFC* ✦
 │ ✦ *MR EPHRAIM OFC* ༆
@@ -15,11 +16,10 @@ const text = `
 
 ╭───◐
 │ 👑 OWNER - ${settings.ownerName}
-│ 📞 MAIN - 2347072956206
-│ 📞 BACKUP - 2348108717744
 │ 🚀 VERSION - E TECH V2.0
 │ 📜 COMMAND MODULES - ${total}
 │ ⚙️ PREFIX - [ ${settings.prefix} ]
+│ 🤖 ACCOUNT - CONNECTED WHATSAPP
 │ 🌐 WEB - ${settings.botLink}
 ╰───◐
 
@@ -35,6 +35,14 @@ const text = `
 
 ${settings.footer}
 `;
-try { await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m }); } catch (e) { console.log('Menu image failed: '+e.message); await sock.sendMessage(m.chat, { text }, { quoted: m }); }
-}
-}
+
+    try {
+      const response = await axios.get(settings.menuImage, { responseType: "arraybuffer", timeout: 12000 });
+      await sock.sendMessage(m.chat, { image: Buffer.from(response.data), caption: text }, { quoted: m });
+    } catch (e) {
+      console.log("Menu image failed: " + e.message);
+      const fallback = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1048" height="592" viewBox="0 0 1048 592"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#160b24"/><stop offset="1" stop-color="#e889bd"/></linearGradient></defs><rect width="1048" height="592" fill="url(#g)"/><text x="524" y="270" text-anchor="middle" fill="white" font-size="72" font-family="Arial" font-weight="700">E TECH OFC</text><text x="524" y="335" text-anchor="middle" fill="white" font-size="30" font-family="Arial">MR EPHRAIM OFC</text></svg>`);
+      await sock.sendMessage(m.chat, { image: fallback, caption: text }, { quoted: m });
+    }
+  }
+};
