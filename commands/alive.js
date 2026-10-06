@@ -1,3 +1,4 @@
+const axios = require('axios');
 module.exports = {
 name: "alive",
 execute: async (sock, m, args, settings) => {
