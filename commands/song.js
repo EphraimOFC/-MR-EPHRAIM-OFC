@@ -1,6 +1,6 @@
 const yts = require('yt-search')
 const { exec } = require('child_process')
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = require('@whiskeysockets/baileys')
+const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys')
 const fs = require('fs')
 const path = require('path')
 const storePath = path.join(__dirname, '../tmp/song_store.json')
@@ -112,13 +112,18 @@ module.exports = {
        }
       });
      });
-     return downloadResult;; return
+     return downloadResult
   }
   if(!query){ await conn.sendMessage(m.chat, { text: "🎵 Example:.song Seyi Vibez - Chance" }, { quoted: m }); return false }
   let search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
   let video=search.videos[0]; let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
   let caption=`*🎵 E TECH SONG DOWNLOADER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n\n${conn.user.name || "E TECH OFC"}\n\n${require('../settings').footer}`
-  await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
+  try {
+    await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
+  } catch (error) {
+    console.log('Native song buttons failed: ' + error.message)
+    await conn.sendMessage(m.chat, { text: `${caption}\n\n🎧 Audio: reply *audio*\n📁 Document: reply *document*` }, { quoted: m })
+  }
   return true
  }
 }
