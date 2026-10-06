@@ -1,9 +1,16 @@
 const yts = require('yt-search')
-const { exec } = require('child_process')
+const { execFile } = require('child_process')
 const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys')
 const fs = require('fs')
 const path = require('path')
 const storePath = path.join(__dirname, '../tmp/song_store.json')
+const searchCache = new Map()
+const SEARCH_TTL = 5 * 60 * 1000
+function findTool(name){
+ const exe = process.platform === 'win32' ? name + '.exe' : name
+ const links = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Links', exe) : ''
+ return links && fs.existsSync(links) ? links : exe
+}
 function getStore(){ try{ if(fs.existsSync(storePath)) return JSON.parse(fs.readFileSync(storePath)); return {} }catch{ return {} } }
 function saveStore(d){ let dir=path.dirname(storePath); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(storePath, JSON.stringify(d)) }
 async function sendSongButtons(conn, m, caption, thumbnail, videoId) {
@@ -89,9 +96,23 @@ module.exports = {
      if(!videoData){ await conn.sendMessage(m.chat, { text: "❌ Session expired. Search again" }, { quoted: m }); return false }
      await conn.sendMessage(m.chat, { text: `⬇️ Downloading *${videoData.title}*...` }, { quoted: m })
      let fileName=path.join(__dirname, `../tmp/${id}.mp3`); let dir=path.dirname(fileName); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
-     let ytdlpCmd=`yt-dlp -x --audio-format mp3 --no-playlist -o "${fileName}" "${videoData.url}"`;
+     const ytdlp = findTool('yt-dlp')
+     const downloadArgs = [
+      '--no-playlist',
+      '--extract-audio',
+      '--audio-format', 'mp3',
+      '--audio-quality', '0',
+      '--concurrent-fragments', '4',
+      '--retries', '2',
+      '--fragment-retries', '2',
+      '--socket-timeout', '15',
+      '--no-warnings',
+      '--quiet',
+      '-o', fileName,
+      videoData.url
+     ]
      const downloadResult = await new Promise((resolve) => {
-      exec(ytdlpCmd, async (err) => {
+      execFile(ytdlp, downloadArgs, { windowsHide: true, maxBuffer: 1024 * 1024 }, async (err) => {
        if(err || !fs.existsSync(fileName)){
         await conn.sendMessage(m.chat, { text: "❌ Download failed on server. Install yt-dlp + ffmpeg on host." }, { quoted: m });
         return resolve(false);
@@ -115,8 +136,13 @@ module.exports = {
      return downloadResult
   }
   if(!query){ await conn.sendMessage(m.chat, { text: "🎵 Example:.song Seyi Vibez - Chance" }, { quoted: m }); return false }
-  let search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
-  let video=search.videos[0]; let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
+  const cacheKey = query.toLowerCase().trim()
+  let video = searchCache.get(cacheKey)?.video
+  if(!video || Date.now() - searchCache.get(cacheKey).time > SEARCH_TTL){
+    const search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
+    video=search.videos[0]
+    searchCache.set(cacheKey, { video, time: Date.now() })
+  } let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
   let caption=`*🎵 E TECH SONG DOWNLOADER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n\n${conn.user.name || "E TECH OFC"}\n\n${require('../settings').footer}`
   try {
     await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
