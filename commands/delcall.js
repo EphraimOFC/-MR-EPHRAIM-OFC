@@ -1,0 +1,1 @@
+module.exports={name:"delcall",execute:async(sock,m,a,s)=>{global.anticall=false; await sock.sendMessage(m.chat,{text:`📞 AntiCall disabled.\\n\\n${s.footer}`},{quoted:m});}};
