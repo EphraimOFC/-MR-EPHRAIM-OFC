@@ -1,4 +1,4 @@
-const axios = require('axios');
+const fs = require('fs');
 
 module.exports = {
   name: "menu",
@@ -37,12 +37,12 @@ ${settings.footer}
 `;
 
     try {
-      const response = await axios.get(settings.menuImage, { responseType: "arraybuffer", timeout: 12000 });
-      await sock.sendMessage(m.chat, { image: Buffer.from(response.data), caption: text }, { quoted: m });
+      const imagePath = settings.menuImage;
+      if (!fs.existsSync(imagePath)) throw new Error("Image file missing: " + imagePath);
+      await sock.sendMessage(m.chat, { image: fs.readFileSync(imagePath), caption: text }, { quoted: m });
     } catch (e) {
       console.log("Menu image failed: " + e.message);
-      const fallback = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1048" height="592" viewBox="0 0 1048 592"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#160b24"/><stop offset="1" stop-color="#e889bd"/></linearGradient></defs><rect width="1048" height="592" fill="url(#g)"/><text x="524" y="270" text-anchor="middle" fill="white" font-size="72" font-family="Arial" font-weight="700">E TECH OFC</text><text x="524" y="335" text-anchor="middle" fill="white" font-size="30" font-family="Arial">MR EPHRAIM OFC</text></svg>`);
-      await sock.sendMessage(m.chat, { image: fallback, caption: text }, { quoted: m });
+      await sock.sendMessage(m.chat, { text }, { quoted: m });
     }
   }
 };
