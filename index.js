@@ -29,13 +29,79 @@ global.banned = fs.existsSync('./banned.json')? JSON.parse(fs.readFileSync('./ba
 global.reactEmojis = global.reactEmojis || ['⚡','🔥','❤️','💯','😍','🤩','😎','👑','✨','🚀','🎯','😂','🥶','🫡'];
 
 const subMenus = {
-"1": `╭───◐\n│ 👑 OWNER MENU\n╰───◐\n╭───◐\n│.privacy 🔵\n│.setting ⚙️\n│.getdp 🥰\n│.csong 🎵\n│.forward 💯\n│.setsudo 👑\n│.delsudo 🚫\n│.setcall 📞\n│.delcall 🔓\n│.ban 🔨\n│.unban ✅\n│.boost 🚀\n│.doboost 🔥\n│.rboost ❤️\n╰───◐\n${settings.footer}`,
-"2": `╭───◐\n│ 🌐 SOCIAL MENU\n╰───◐\n╭───◐\n│.song 🎧\n│.video 📹\n│.fb 📘\n│.tiktok 🎵\n│.insta 📸\n│.twitter 🐦\n│.movie 🎬\n│.apk 📱\n│.img 🖼️\n╰───◐\n${settings.footer}`,
-"3": `╭───◐\n│ 🤖 AI MENU\n│.ai 💬\n│.gpt 🧠\n│.imagine 🎨\n│.gemini ✨\n╰───◐\n${settings.footer}`,
-"4": `╭───◐\n│ 👥 GROUP MENU\n│.add ➕.kick 👢.promote 👑.demote 🔻.tagall 👥.hidetag 👁️.open 🔓.close 🔒\n╰───◐\n${settings.footer}`,
-"5": `╭───◐\n│ 🛠️ TOOLS MENU\n│.ping 📶.alive 🖐️.menu 🌍.sticker 🏷️.toimg 🖼️\n╰───◐\n${settings.footer}`,
-"6": `╭───◐\n│ 📚 EDUCATION MENU\n│.define 📖.translate 🌐.wikipedia 📚\n╰───◐\n${settings.footer}`,
-"7": `╭───◐\n│ 📢 CHANNEL MENU\n│.mychannels 📋.setchannel 📌.delchannel 🗑️.creact ⚡\n╰───◐\n│ Channel: ${channelLink}\n╰───◐\n${settings.footer}`
+"1": `╭───◐
+│ 👑 OWNER MENU
+╰───◐
+│ .privacy
+│ .setting
+│ .getdp
+│ .forward
+│ .setsudo / .delsudo
+│ .setcall / .delcall
+│ .ban / .unban
+│ .boost / .doboost / .rboost
+│ .glink / .glinkreset
+╰───◐
+${settings.footer}`,
+"2": `╭───◐
+│ 🌐 SOCIAL MENU
+╰───◐
+│ .song / .play
+│ .video
+│ .tiktok
+│ .insta
+│ .fb
+│ .movie
+│ .apk
+│ .img
+│ .url
+│ .cinesubz
+│ .ss
+╰───◐
+${settings.footer}`,
+"3": `╭───◐
+│ 🤖 AI MENU
+╰───◐
+│ AI commands are not installed yet.
+│ Use the working commands in the other menus.
+╰───◐
+${settings.footer}`,
+"4": `╭───◐
+│ 👥 GROUP MENU
+╰───◐
+│ .add / .kick
+│ .promote / .demote
+│ .tagall / .hidetag
+│ .open / .close
+│ .leave
+╰───◐
+${settings.footer}`,
+"5": `╭───◐
+│ 🛠️ TOOLS MENU
+╰───◐
+│ .ping / .alive / .system
+│ .sticker
+│ .antiviewonce
+│ .hide / .unhide
+│ .bot / .send
+╰───◐
+${settings.footer}`,
+"6": `╭───◐
+│ 📚 EDUCATION MENU
+╰───◐
+│ Education commands are not installed yet.
+│ Use the working commands in the other menus.
+╰───◐
+${settings.footer}`,
+"7": `╭───◐
+│ 📢 CHANNEL MENU
+╰───◐
+│ .channelmenu
+│ .csong
+│ .creact
+│ Channel: ${channelLink}
+╰───◐
+${settings.footer}`
 };
 
 let currentSock = null;
