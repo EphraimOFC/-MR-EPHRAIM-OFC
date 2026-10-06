@@ -14,7 +14,7 @@ module.exports = {
     const senderParticipant = groupMetadata.participants.find(p => jidNormalizedUser(p.id) === senderJid);
     const isBotAdmin = !!botParticipant?.admin;
     const isSenderAdmin = !!senderParticipant?.admin;
-    const isOwner = senderJid.includes("2347072956206");
+    const protectedNumbers = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);\n    const isOwner = protectedNumbers.some(num => senderJid.includes(num));
 
     if (!isBotAdmin) {
       return sock.sendMessage(m.chat,{text:"❌ Bot must be an admin to close the group. Promote E TECH OFC first."},{quoted:m});
