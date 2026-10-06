@@ -292,6 +292,12 @@ async function handleMessage(m){
   if(await handleViewOnce(m)) return;
   m.chat = m.key.remoteJid;
   if(!m.chat) return;
+  if(global.creact && m.chat.endsWith('@newsletter') && !m.key.fromMe){
+    const emojis = global.reactEmojis?.length ? global.reactEmojis : ['⚡','🔥','❤️','💯'];
+    const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+    sock.sendMessage(m.chat, { react:{ text:emoji, key:m.key } }).catch(()=>{});
+    return;
+  }
   let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || '';
   if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
     try { const p=JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson); if(p.id) body=p.id; } catch {}
