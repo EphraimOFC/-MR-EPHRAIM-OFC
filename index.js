@@ -13,11 +13,12 @@ const channelLink = settings.channelLink;
 let channelJID = null;
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// 🔒 OWNER PROTECTION
-const PROTECTED_OWNER_NUMS = ["2347072956206", "2348108717744"];
+// 🔒 OWNER PROTECTION — numbers are read only from settings, never hard-coded in the handler.
+const PROTECTED_OWNER_NUMS = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);
 function isRealOwner(jid){
   if(!jid) return false;
-  return PROTECTED_OWNER_NUMS.some(num => jid && jid.includes(num));
+  const normalized = jidNormalizedUser(jid);
+  return PROTECTED_OWNER_NUMS.some(num => normalized.includes(num));
 }
 
 global.privacyMode = global.privacyMode || "public";
@@ -133,22 +134,16 @@ try {
     const credsFileTmp = path.join(sessionFolderTmp, 'creds.json');
     console.log(chalk.cyan("📥 Checking SESSION_ID..."));
     let sessionUrl = process.env.SESSION_ID.trim();
-    if (sessionUrl.includes('pastebin.com') &&!sessionUrl.includes('/raw/')) {
-      sessionUrl = sessionUrl.replace('pastebin.com/', 'pastebin.com/raw/');
-    }
+    if (sessionUrl.includes('pastebin.com') &&!sessionUrl.includes('/raw/')) sessionUrl = sessionUrl.replace('pastebin.com/', 'pastebin.com/raw/');
     const res = await axios.get(sessionUrl, { timeout: 15000 });
     let data = res.data;
-    if (typeof data === 'string') {
-      try { data = JSON.parse(data); } catch(e) {}
-    }
+    if (typeof data === 'string') { try { data = JSON.parse(data); } catch(e) {} }
     if (data) {
       fs.writeFileSync(credsFileTmp, typeof data === 'string'? data : JSON.stringify(data, null, 2));
       console.log(chalk.green("✅ Session loaded from SESSION_ID"));
     }
   }
-} catch (e) {
-  console.log(chalk.red("❌ Failed to load SESSION_ID: " + e.message));
-}
+} catch (e) { console.log(chalk.red("❌ Failed to load SESSION_ID: " + e.message)); }
 
 const sessionFolder = path.resolve(settings.sessionName);
 const credsFile = path.join(sessionFolder, 'creds.json');
@@ -156,15 +151,10 @@ const credsBackup = `${credsFile}.bak`;
 
 if (fs.existsSync(credsFile)) {
   let healthy = false;
-  try {
-    healthy = fs.statSync(credsFile).size > 0 &&!!JSON.parse(fs.readFileSync(credsFile, 'utf8'));
-  } catch (_) {}
+  try { healthy = fs.statSync(credsFile).size > 0 &&!!JSON.parse(fs.readFileSync(credsFile, 'utf8')); } catch (_) {}
   if (!healthy && fs.existsSync(credsBackup)) {
     try {
-      if (fs.statSync(credsBackup).size > 0) {
-        JSON.parse(fs.readFileSync(credsBackup, 'utf8'));
-        fs.copyFileSync(credsBackup, credsFile);
-      }
+      if (fs.statSync(credsBackup).size > 0) { JSON.parse(fs.readFileSync(credsBackup, 'utf8')); fs.copyFileSync(credsBackup, credsFile); }
     } catch (_) {}
   }
 }
@@ -220,8 +210,9 @@ sock.ev.on('connection.update', async (update) => {
   if(update.connection === "open"){
     if (myGeneration!== botGeneration) return;
     authFailureStreak = 0;
-    console.log(chalk.green(`✅ [${time}] E TECH OFC Connected`));
-    console.log(chalk.green(`✅ Protected Owners: ${PROTECTED_OWNER_NUMS.join(" & ")}`));
+    global.botJid = jidNormalizedUser(sock.user?.id || '');
+    global.botNumber = global.botJid.split('@')[0] || '';
+    console.log(chalk.green(`✅ [${time}] E TECH OFC Connected as ${global.botNumber ? '+' + global.botNumber : 'WhatsApp account'}`));
     try {
       if (!channelJID) {
         const meta = await sock.newsletterMetadata("invite", channelInviteCode);
@@ -259,9 +250,7 @@ sock.ev.on('call', async (calls) => {
 });
 
 sock.ev.on('messages.upsert', ({ messages }) => {
-  for (const m of messages || []) {
-    handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
-  }
+  for (const m of messages || []) handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
 });
 
 async function handleViewOnce(m){
@@ -281,10 +270,7 @@ async function handleViewOnce(m){
     if(type === 'videoMessage') await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: '👁️ *Anti-ViewOnce*'+caption }, { quoted:m });
     if(type === 'audioMessage') await sock.sendMessage(m.key.remoteJid, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted:m });
     return true;
-  }catch(error){
-    console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message));
-    return false;
-  }
+  }catch(error){ console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message)); return false; }
 }
 
 async function handleMessage(m){
@@ -314,19 +300,13 @@ async function handleMessage(m){
   if(global.privacyMode === 'pc' && !chatIsPrivate && !isOwner) return;
   const isTargetingProtected = PROTECTED_OWNER_NUMS.some(num => body.includes(num));
   if(isTargetingProtected && /^(\.ban|\.block|\.kick|\.remove|\.del)\b/i.test(body)){
-    return sock.sendMessage(m.chat, { text: '🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\n' + PROTECTED_OWNER_NUMS.map(n => '• '+n).join('\n') + '\n\n' + settings.footer }, { quoted:m }).catch(()=>{});
+    return sock.sendMessage(m.chat, { text: '🛡️ *E TECH OFC PROTECTION*\n\n❌ You cannot ban/kick/remove protected owner!\n\n' + settings.footer }, { quoted:m }).catch(()=>{});
   }
   if(/^\.(tagall|hidetag)\b/i.test(body) && !isOwner){
-    return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!\nOwner: ' + PROTECTED_OWNER_NUMS.join(' & ') }, { quoted:m }).catch(()=>{});
+    return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!' }, { quoted:m }).catch(()=>{});
   }
   if(subMenus[body]) return sock.sendMessage(m.chat, { text: subMenus[body] }, { quoted:m }).catch(()=>{});
-
-  // Only accept our native song button IDs. Bare "1"/"2" replies from other bots/users
-  // must never trigger E TECH song downloads.
-  if(body.startsWith('etech_') && commands.has('song')){
-    return runCommand(commands.get('song'), m, [body]);
-  }
-
+  if(body.startsWith('etech_') && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
   if(!body.startsWith(settings.prefix)) return;
   const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
   const cmdName = (parts.shift() || '').toLowerCase();
@@ -339,13 +319,9 @@ async function handleMessage(m){
 async function runCommand(cmd, m, args){
   try{
     const text = args.join(' ');
-    const result = cmd.execute.length <= 2
-      ? await cmd.execute(m, { conn:sock, text, args })
-      : await cmd.execute(sock, m, args, settings);
+    const result = cmd.execute.length <= 2 ? await cmd.execute(m, { conn:sock, text, args }) : await cmd.execute(sock, m, args, settings);
     if(global.creact){
-      const reaction = String(cmd.name || '').toLowerCase() === 'alive'
-        ? '🌍'
-        : result === false ? '❌' : '✅';
+      const reaction = String(cmd.name || '').toLowerCase() === 'alive' ? '🌍' : result === false ? '❌' : '✅';
       sock.sendMessage(m.chat, { react:{ text:reaction, key:m.key } }).catch(()=>{});
     }
     return result;
@@ -355,7 +331,6 @@ async function runCommand(cmd, m, args){
     await sock.sendMessage(m.chat, { text:'❌ Command failed: ' + error.message }, { quoted:m }).catch(()=>{});
   }
 }
-
 }
 startBot().catch(error => {
   console.log(chalk.red(`Startup failed: ${error.message}`));
