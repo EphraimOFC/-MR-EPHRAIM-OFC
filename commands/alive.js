@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 module.exports = {
   name: "alive",
@@ -33,7 +34,7 @@ ${settings.footer}
 `;
 
     try {
-      const imagePath = settings.aliveImage;
+      const imagePath = path.resolve(__dirname, "..", settings.aliveImage);
       if (!fs.existsSync(imagePath)) throw new Error("Image file missing: " + imagePath);
       await sock.sendMessage(m.chat, { image: fs.readFileSync(imagePath), caption: text }, { quoted: m });
     } catch (e) {
