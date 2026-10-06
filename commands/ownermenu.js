@@ -15,17 +15,14 @@ execute: async (sock, m, args, settings) => {
 ╭───◐ *OWNER MENU - E TECH OFC* 👑
 ╰───◐
 ╭───◐
-│ 🔄 .restart - Restart Bot
-│ 📢 .broadcast - Broadcast
-│ 🚫 .block - Block User
-│ ✅ .unblock - Unblock User
-│ 🖼️ .setpp - Set Bot DP
-│ 🗑️ .clearsession - Clear Session
+│ 🔗 .glink - Group Link
+│ 🔄 .glinkreset - Reset Link
 │ 👑 .setsudo - Add Sudo
 │ ❌ .delsudo - Remove Sudo
 │ 🔨 .ban - Ban User
 │ ✅ .unban - Unban User
-│ 📞 .anticall on/off
+│ 📞 .setcall on/off
+│ 📞 .delcall
 │ ⚙️ .privacy
 │ 📊 .setting
 ╰───◐
