@@ -19,7 +19,7 @@ module.exports = {
         title:"E TECH OFC • SOCIAL",
         body:text,
         image:settings.menuImage,
-        footer:settings.buttonFooter || "⚡ Powered by N TECH PRO",
+        footer:settings.buttonFooter || "© Powered by E TECH OFC™",
         buttons:[
           quickReply("🎵 SONG",".song"),
           quickReply("🎬 VIDEO",".video"),
