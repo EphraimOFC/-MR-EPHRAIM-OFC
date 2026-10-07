@@ -23,6 +23,7 @@ module.exports = {
   botLink: "https://e-tech-ofc-pair-1.onrender.com",
   pairedSessionsDir: "sessions",
   api: {
-    chamindu: "https://api.chamindu.site/api/v1"
+    chamindu: "https://api.chamindu.site/api/v1",
+    sasa: process.env.SASA_DEV_API_KEY || ""
   }
 };
