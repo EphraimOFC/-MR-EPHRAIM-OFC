@@ -1,30 +1,27 @@
-const { sendInteractive, quickReply } = require('../ui');
 module.exports = {
-  name: "toolsmenu",
-  execute: async (sock, m, args, settings) => {
-    const text = [
-      "╭─〔 🛠️ TOOLS MENU 〕─╮",
-      "│ 🏓 .ping",
-      "│ 💚 .alive",
-      "│ 📊 .system",
-      "│ 🧩 .sticker",
-      "│ 👁️ .antiviewonce",
-      "│ 🔒 .hide / .unhide",
-      "│ 🤖 .bot / .pair",
-      "╰────────────────────╯"
-    ].join("\n");
-    try {
-      await sendInteractive(sock,m,{
-        title:"E TECH OFC • TOOLS",
-        body:text,
-        image:settings.menuImage,
-        footer:settings.buttonFooter || "⚡ Powered by N TECH PRO",
-        buttons:[
-          quickReply("🏓 PING",".ping"),
-          quickReply("💚 ALIVE",".alive"),
-          quickReply("🏠 MAIN MENU",".menu")
-        ]
-      });
-    } catch(e){ await sock.sendMessage(m.chat,{text:text+"\n\n"+settings.footer},{quoted:m}); }
-  }
-};
+name: "toolsmenu",
+alias: ["toolmenu"],
+async execute(sock, m) {
+let f = (m.pushName||"User").toUpperCase()
+let txt = `
+*🛠️⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${f}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗧𝗢𝗢𝗟𝗦 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
+
+*┏━━━━━━❥❥❥*
+*┃* \`.ping\` - bot speed
+*┃* \`.alive\` - check alive
+*┃* \`.system\` - system info
+*┃* \`.url\` - url to image
+*┃* \`.fetch\` - fetch url
+*┃* \`.hide\` - hide command
+*┃* \`.unhide\` - unhide command
+*┃* \`.sticker\` - image to sticker
+*┃* \`.toimg\` - sticker to image
+*┃* \`.remini
