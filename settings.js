@@ -21,6 +21,7 @@ module.exports = {
   channelInviteCode: "0029VbCrylk2Q0MbaKpp16",
   pairWebsite: "https://e-tech-ofc-pair-1.onrender.com",
   botLink: "https://e-tech-ofc-pair-1.onrender.com",
+  pairedSessionsDir: "sessions",
   api: {
     chamindu: "https://api.chamindu.site/api/v1"
   }
