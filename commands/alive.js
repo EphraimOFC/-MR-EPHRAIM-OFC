@@ -1,48 +1,43 @@
-const fs=require('fs');
-const path=require('path');
-const { sendInteractive, quickReply } = require('../ui');
+const moment = require('moment-timezone')
+module.exports = {
+name: "alive",
+alias: ["bot","status"],
+async execute(sock, m, args, settings) {
+try { await sock.sendMessage(m.chat, { react: { text: "🌎", key: m.key } }) } catch{}
+let pushName = m.pushName || "User"
+let fancy = pushName.toUpperCase()
+let uptime = clockString(process.uptime()*1000)
+let date = moment().tz("Africa/Lagos").format("DD/MM/YYYY")
+let time = moment().tz("Africa/Lagos").format("HH:mm:ss")
 
-module.exports={
-  name:'alive',
-  execute:async(sock,m,args,settings)=>{
-    const imagePath=path.resolve(__dirname,'..',settings.aliveImage||'');
-    const body=[
-      '✨ *WELCOME TO E TECH OFC*',
-      '',
-      '👋 Hello! I\'m alive and ready.',
-      '',
-      '╭───────────────╮',
-      '│ 👑 *OWNER*  → '+settings.ownerName,
-      '│ 🤖 *BOT*    → E TECH OFC',
-      '│ 🚀 *VERSION* → 2.0.0',
-      '│ ⚡ *STATUS* → ONLINE',
-      '╰───────────────╯',
-      '',
-      '⚡ *I\'M ALIVE NOW*',
-      '⏱️ Prefix → *'+settings.prefix+'*',
-      '',
-      '╭─〔 SELECT AN OPTION 〕─╮',
-      '│ Use the buttons below',
-      '╰───────────────────────╯'
-    ].join('\n');
+let txt = `
+*🌎⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${fancy}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗔𝗟𝗜𝗩𝗘\`
+ *┗━━━━━━━━━━━❥❥❥*
 
-    const image=fs.existsSync(imagePath)?imagePath:null;
-    try{
-      await sendInteractive(sock,m,{
-        title:'E TECH OFC',
-        body,
-        image,
-        buttons:[
-          quickReply('↩ MAIN MENU 📜','main_menu'),
-          quickReply('↩ CREATE BOT 🤖','create_bot'),
-          quickReply('↩ VISIT SITE 🌐','visit_site')
-        ],
-        footer:settings.footer
-      });
-    }catch(e){
-      const fallback=body+'\n\n'+settings.footer;
-      if(image) await sock.sendMessage(m.chat,{image:fs.readFileSync(image),caption:fallback},{quoted:m});
-      else await sock.sendMessage(m.chat,{text:fallback},{quoted:m});
-    }
-  }
-};
+*┏━ ⌬ 𝗕𝗢𝗧 𝗜𝗡𝗙𝗢 ━━━━*
+*┃* 🌍 Mode › ${global.privacyMode || "Public"}
+*┃* ⏳ Uptime › ${uptime}
+*┃* 📅 Date › ${date}
+*┃* ⏰ Time › ${time}
+*┗━━━━━━━━━━━━━❥❥❥*
+
+*✅ Bot is Online & Working!*
+
+${settings.footer}
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
+}
+}
+function clockString(ms) {
+  let h = Math.floor(ms / 3600000)
+  let m = Math.floor(ms / 60000) % 60
+  let s = Math.floor(ms / 1000) % 60
+  return [h, m, s].map(v => v.toString().padStart(2,0)).join(':')
+}
