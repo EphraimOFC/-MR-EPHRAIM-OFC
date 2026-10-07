@@ -375,12 +375,14 @@ async function handleMessage(m){
   }
   function extractInteractiveId(message){
     if(!message || typeof message !== 'object') return '';
+
     const direct =
       message.buttonsResponseMessage?.selectedButtonId ||
       message.templateButtonReplyMessage?.selectedId ||
-      message.listResponseMessage?.singleSelectReply?.selectedRowId ||
-      message.interactiveResponseMessage?.body?.text;
+      message.listResponseMessage?.singleSelectReply?.selectedRowId;
+
     if(direct) return String(direct);
+
     const native = message.interactiveResponseMessage?.nativeFlowResponseMessage;
     if(native){
       const raw = native.paramsJson;
@@ -391,23 +393,45 @@ async function handleMessage(m){
             ? raw.toString('utf8')
             : raw instanceof Uint8Array
               ? Buffer.from(raw).toString('utf8')
-              : String(raw || '');
+              : raw && typeof raw === 'object'
+                ? JSON.stringify(raw)
+                : String(raw || '');
         const parsed = JSON.parse(json || '{}');
-        const id = parsed.id || parsed.selectedId || parsed.selected_id || parsed.display_text || parsed.displayText;
+        const id = parsed.id || parsed.selectedId || parsed.selected_id ||
+          parsed.button_id || parsed.buttonId || parsed.display_text || parsed.displayText;
         if(id) return String(id);
       } catch (_) {}
     }
-    for(const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']){
+
+    // Handle every WhatsApp wrapper used by different clients.
+    for(const wrapper of [
+      'ephemeralMessage',
+      'viewOnceMessage',
+      'viewOnceMessageV2',
+      'viewOnceMessageV2Extension',
+      'documentWithCaptionMessage'
+    ]){
       const nested = message[wrapper]?.message;
       const id = extractInteractiveId(nested);
       if(id) return id;
     }
+
+    // Last-resort deep scan: some WhatsApp builds add another wrapper
+    // around interactiveResponseMessage.
+    for(const [key, value] of Object.entries(message)){
+      if(key === 'messageContextInfo' || key === 'senderKeyDistributionMessage') continue;
+      if(value && typeof value === 'object'){
+        const id = extractInteractiveId(value);
+        if(id) return id;
+      }
+    }
     return '';
   }
 
+  const unwrappedMessage = unwrapMessageContent(m.message).message || m.message;
   let body =
-    m.message.conversation ||
-    m.message.extendedTextMessage?.text ||
+    unwrappedMessage.conversation ||
+    unwrappedMessage.extendedTextMessage?.text ||
     extractInteractiveId(m.message) ||
     '';
   body = String(body || '').trim();
