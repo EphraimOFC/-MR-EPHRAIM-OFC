@@ -1,7 +1,29 @@
 module.exports = {
 name: "edumenu",
-execute: async (sock, m, args, settings) => {
-const text = `╭───◐\n│ 📚 EDUCATION MENU\n╰───◐\n╭───◐\n│.define\n│.translate\n│.wikipedia\n╰───◐\n> ${settings.footer}`;
-await sock.sendMessage(m.chat, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
+alias: ["educationmenu"],
+async execute(sock, m) {
+let f = (m.pushName||"User").toUpperCase()
+let txt = `
+*📚⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${f}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗘𝗗𝗨𝗖𝗔𝗧𝗜𝗢𝗡 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
+
+*┏━━━━━━❥❥❥*
+*┃* \`.define\` - define word
+*┃* \`.translate\` - translate
+*┃* \`.wikipedia\` - wiki search
+*┃* \`.calculate\` - calculator
+*┗━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
 }
 }
