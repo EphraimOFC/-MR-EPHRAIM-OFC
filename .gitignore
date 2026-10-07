@@ -1,0 +1,11 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# WhatsApp auth/session data
+session/
+sessions/
+
+# Runtime/temp data
+temp/
