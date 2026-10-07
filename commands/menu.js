@@ -1,49 +1,42 @@
 const fs = require('fs');
 const path = require('path');
+const { sendInteractive, quickReply } = require('../ui');
 
 module.exports = {
   name: "menu",
   execute: async (sock, m, args, settings) => {
-    const total = 55;
-    const text = `
-╭─○
-│ ╎ *E TECH OFC* ✦
-│ ✦ *MR EPHRAIM OFC* ༆
-╰─○
-
-╭───◐
-│ 🏠 *MAIN MENU*
-╰───◐
-
-╭───◐
-│ 👑 OWNER - ${settings.ownerName}
-│ 🚀 VERSION - E TECH V2.0
-│ 📜 COMMAND MODULES - ${total}
-│ ⚙️ PREFIX - [ ${settings.prefix} ]
-│ 🤖 ACCOUNT - CONNECTED WHATSAPP
-│ 🌐 WEB - ${settings.botLink}
-╰───◐
-
-╭─「 *Reply Number* ⬇️ 」
-│ 1️⃣ OWNER MENU
-│ 2️⃣ SOCIAL MENU
-│ 3️⃣ AI MENU
-│ 4️⃣ GROUP MENU
-│ 5️⃣ TOOLS MENU
-│ 6️⃣ EDUCATION MENU
-│ 7️⃣ CHANNEL MENU
-╰───◐
-
-${settings.footer}
-`;
+    const text = [
+      "╭─〔 ⚡ E TECH OFC 〕─╮",
+      "│ 👋 *Welcome back!*",
+      "│ 🤖 Fast • Stable • Professional",
+      "╰────────────────────╯",
+      "",
+      "Choose a menu below. You can also use the command directly.",
+      "",
+      "👑 Owner  •  🌐 Social  •  👥 Group",
+      "🛠️ Tools  •  🤖 AI  •  📢 Channel",
+      "",
+      "⚡ *Reply buttons are active*"
+    ].join("\n");
 
     try {
-      const imagePath = path.resolve(__dirname, "..", settings.menuImage);
-      if (!fs.existsSync(imagePath)) throw new Error("Image file missing: " + imagePath);
-      await sock.sendMessage(m.chat, { image: fs.readFileSync(imagePath), caption: text }, { quoted: m });
+      await sendInteractive(sock, m, {
+        title: "E TECH OFC • MAIN MENU",
+        body: text,
+        image: path.resolve(__dirname, "..", settings.menuImage),
+        footer: settings.buttonFooter || "⚡ Powered by N TECH PRO",
+        buttons: [
+          quickReply("📂 MAIN MENU", "main_menu"),
+          quickReply("🤖 CREATE BOT", "create_bot"),
+          quickReply("🌐 VISIT SITE", "visit_site")
+        ]
+      });
     } catch (e) {
-      console.log("Menu image failed: " + e.message);
-      await sock.sendMessage(m.chat, { text }, { quoted: m });
+      console.log("Menu UI failed: " + e.message);
+      const imagePath = path.resolve(__dirname, "..", settings.menuImage);
+      const fallback = text + "\n\n" + settings.footer;
+      if (fs.existsSync(imagePath)) await sock.sendMessage(m.chat, { image: fs.readFileSync(imagePath), caption: fallback }, { quoted: m });
+      else await sock.sendMessage(m.chat, { text: fallback }, { quoted: m });
     }
   }
 };
