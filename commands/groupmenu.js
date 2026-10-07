@@ -1,31 +1,32 @@
+const { sendInteractive, quickReply } = require('../ui');
 module.exports = {
-name: "groupmenu",
-execute: async (sock, m, args, settings) => {
-const text = `
-╭───◐ *GROUP MENU - E TECH OFC* 👥
-╰───◐
-╭───◐
-│ 👥 .tagall - Tag All
-│ 👁️ .hidetag - Hide Tag
-│ 👢 .kick @user - Kick
-│ ➕ .add 234xxx - Add
-│ 👑 .promote @user - Promote
-│ 🔻 .demote @user - Demote
-│ 🔓 .open - Open Group
-│ 🔒 .close - Close Group
-│ 🚪 .leave - Leave Group
-╰───◐
-╭───◐ *PROTECTION* 🛡️
-│ 🔒 2347072956206 - Main Protected
-│ 🔒 2348108717744 - Backup Protected
-│ ✅ Cannot be kicked/banned
-╰───◐
-╭───◐
-│ 👑 MR EPHRAIM OFC
-│ 🤖 E TECH OFC V2.0
-╰───◐
-
-${settings.footer}`;
-try { await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m }); } catch (e) { console.log('Menu image failed: '+e.message); await sock.sendMessage(m.chat, { text }, { quoted: m }); }
-}
-}
+  name: "groupmenu",
+  execute: async (sock, m, args, settings) => {
+    const text = [
+      "╭─〔 👥 GROUP MENU 〕─╮",
+      "│ ➕ .add 234xxx",
+      "│ 👢 .kick @user",
+      "│ 👑 .promote @user",
+      "│ 🔻 .demote @user",
+      "│ 📢 .tagall / .hidetag",
+      "│ 🔒 .close  •  🔓 .open",
+      "│ 🚪 .leave",
+      "╰────────────────────╯",
+      "",
+      "🛡️ Protected owner numbers remain protected."
+    ].join("\n");
+    try {
+      await sendInteractive(sock,m,{
+        title:"E TECH OFC • GROUP",
+        body:text,
+        image:settings.menuImage,
+        footer:settings.buttonFooter || "⚡ Powered by N TECH PRO",
+        buttons:[
+          quickReply("🔓 OPEN",".open"),
+          quickReply("🔒 CLOSE",".close"),
+          quickReply("🏠 MAIN MENU",".menu")
+        ]
+      });
+    } catch(e){ await sock.sendMessage(m.chat,{text:text+"\n\n"+settings.footer},{quoted:m}); }
+  }
+};
