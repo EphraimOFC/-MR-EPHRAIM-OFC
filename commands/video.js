@@ -2,7 +2,6 @@ const ytSearch = require('yt-search');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { chaminduDownload } = require('../lib/media');
 const settings = require('../settings');
 
 const tmpDir = path.join(__dirname, '../tmp');
@@ -133,26 +132,7 @@ ${settings.footer}`
     let filePath = null;
 
     try {
-      // Fast path: use the media API when it accepts the request.
-      try {
-        const media = await chaminduDownload('ytmp4', url, quality);
-        await sock.sendMessage(
-          m.chat,
-          {
-            video: media.buffer,
-            mimetype: media.mimetype || 'video/mp4',
-            caption:
-`🎬 *${video.title}*
-\n\n📺 Quality: *${quality}p*
-⚡ Delivered by E TECH OFC`
-          },
-          { quoted: m }
-        );
-        return true;
-      } catch (apiError) {
-        console.log('Chamindu video API unavailable, using yt-dlp: ' + apiError.message);
-      }
-
+      // Use yt-dlp directly so video downloads do not wait on a failing API first.
       filePath = await downloadFallback(url, quality, id);
       const buffer = fs.readFileSync(filePath);
       const ext = path.extname(filePath).slice(1).toLowerCase();
@@ -164,8 +144,7 @@ ${settings.footer}`
           mimetype: ext === 'webm' ? 'video/webm' : 'video/mp4',
           caption:
 `🎬 *${video.title}*
-\n\n📺 Quality: *${quality}p*
-⚡ Fast local fallback`
+\n\n📺 Quality: *${quality}p*`
         },
         { quoted: m }
       );
