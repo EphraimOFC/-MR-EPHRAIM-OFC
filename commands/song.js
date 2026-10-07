@@ -137,24 +137,6 @@ module.exports = {
         },
         { quoted: m }
       );
-
-      await conn.sendMessage(
-        m.chat,
-        {
-          text:
-`╭─〔 🎧 DOWNLOAD COMPLETE 〕─╮
-│
-│  *${video.title}*
-│  📦 ${fileName}
-│  ⚡ Fast audio delivery
-│
-╰────────────────────╯
-
-${settings.footer}`
-        },
-        { quoted: m }
-      );
-
       return true;
     } catch (error) {
       console.error('Song download failed:', error.message);
