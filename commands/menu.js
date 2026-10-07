@@ -35,7 +35,7 @@ module.exports={
           quickReply('↩ AI MENU 🤖','menu_3'),
           quickReply('↩ GROUP MENU 👥','menu_4'),
           quickReply('↩ TOOLS MENU 🛠️','menu_5'),
-          quickReply('↩ CHANNEL MENU 📢','menu_6')
+          quickReply('↩ CHANNEL MENU 📢','menu_7')
         ],
         footer:settings.footer
       });
