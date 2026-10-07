@@ -326,11 +326,20 @@ async function recoverDeletedMessage(key) {
   finally { messageStore.delete(key.id); }
 }
 
-sock.ev.on('messages.upsert', ({ messages }) => {
+function processIncomingMessages(messages, eventType = 'upsert'){
   for (const m of messages || []) {
+    if(!m?.message) {
+      console.log(chalk.yellow('⚠️ WhatsApp message event without message content: ' + eventType));
+      continue;
+    }
+    console.log(chalk.gray(`📩 Message received [${eventType}] from ${m.key?.remoteJid || 'unknown'}: ${Object.keys(m.message).join(',')}`));
     cacheIncomingMessage(m);
     handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
   }
+}
+
+sock.ev.on('messages.upsert', ({ messages, type }) => {
+  processIncomingMessages(messages, type || 'upsert');
 });
 
 sock.ev.on('messages.delete', async (event) => {
