@@ -1,9 +1,9 @@
 module.exports = {
-name: "toolsmenu",
-alias: ["toolmenu"],
-async execute(sock, m) {
-let f = (m.pushName||"User").toUpperCase()
-let txt = `
+  name: "toolsmenu",
+  alias: ["toolmenu"],
+  async execute(sock, m) {
+    const f = (m.pushName || "User").toUpperCase();
+    const txt = `
 *🛠️⃝⃘̉̉̉━⋆─⋆──❂*
 *┊ ┊ ┊ ┊ ┊*
 *┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
@@ -18,10 +18,20 @@ let txt = `
 *┃* \`.ping\` - bot speed
 *┃* \`.alive\` - check alive
 *┃* \`.system\` - system info
-*┃* \`.url\` - url to image
-*┃* \`.fetch\` - fetch url
-*┃* \`.hide\` - hide command
-*┃* \`.unhide\` - unhide command
-*┃* \`.sticker\` - image to sticker
+*┃* \`.url\` - media to URL
+*┃* \`.fetch\` - fetch URL
+*┃* \`.hide\` - hide text
+*┃* \`.unhide\` - reveal text
+*┃* \`.sticker\` - image/video to sticker
 *┃* \`.toimg\` - sticker to image
-*┃* \`.remini
+*┃* \`.remini\` - enhance image
+*┃* \`.bot\` - create paired bot
+*┃* \`.send\` - save/send status
+*┗━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`;
+    await sock.sendMessage(m.chat, { text: txt }, { quoted: m });
+  }
+};
