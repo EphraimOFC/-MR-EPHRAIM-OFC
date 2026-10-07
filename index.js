@@ -177,7 +177,7 @@ currentSock = sock;
 const rawSendMessage = sock.sendMessage.bind(sock);
 const brandedFooter = String(settings.footer || '').trim();
 const hasFooter = value => typeof value === 'string' && (
-  value.includes('MR EPHRAIM OFC') || value.includes('Powered by N TECH PRO')
+  value.includes('MR EPHRAIM OFC') || value.includes('Powered by E TECH OFC')
 );
 sock.sendMessage = async (jid, content, options) => {
   if(!content || typeof content !== 'object') return rawSendMessage(jid, content, options);
@@ -356,7 +356,7 @@ async function handleMessage(m){
     }
     return;
   }
-  if(body.startsWith('etech_') && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
+  if(body.startsWith('etech_song_') && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
   if(!body.startsWith(settings.prefix)) return;
   const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
   const cmdName = (parts.shift() || '').toLowerCase();
