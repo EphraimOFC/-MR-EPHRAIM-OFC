@@ -4,9 +4,9 @@ module.exports = {
   name: 'antidelete',
   alias: ['antidel', 'deletealert'],
   async execute(sock, m, args) {
-    const sender = String(m.key.participant || m.key.remoteJid || '');
+    const senders = [m.key.participant, m.key.participantAlt, m.key.remoteJid].filter(Boolean).map(String);
     const owners = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);
-    if (!owners.some(n => sender.includes(n))) {
+    if (!owners.some(n => senders.some(s => s.includes(n)))) {
       return sock.sendMessage(m.chat, { text: '❌ Owner only.' }, { quoted: m });
     }
     const action = String(args[0] || '').toLowerCase();
