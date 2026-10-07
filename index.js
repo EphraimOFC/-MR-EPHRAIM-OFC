@@ -24,6 +24,7 @@ function isRealOwner(jid){
 
 global.privacyMode = global.privacyMode || "public";
 global.antiviewonce = true;
+global.antidelete = true;
 global.anticall = false;
 global.creact = true;
 global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.json')) : [];
@@ -107,6 +108,9 @@ ${settings.footer}`
 };
 
 const menuReplyUntil = new Map();
+const messageStore = new Map();
+const MESSAGE_STORE_TTL = 10 * 60 * 1000;
+const MESSAGE_STORE_MAX = 500;
 
 let currentSock = null;
 let pendingRestart = null;
@@ -278,29 +282,99 @@ sock.ev.on('call', async (calls) => {
  }
 });
 
-sock.ev.on('messages.upsert', ({ messages }) => {
-  for (const m of messages || []) handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
-});
+function cacheIncomingMessage(m) {
+  if (!m?.key?.id || !m?.message) return;
+  messageStore.set(m.key.id, { message: m, time: Date.now() });
+  if (messageStore.size > MESSAGE_STORE_MAX) {
+    const oldest = messageStore.keys().next().value;
+    if (oldest) messageStore.delete(oldest);
+  }
+}
 
-async function handleViewOnce(m){
-  if(!global.antiviewonce || !m?.message || m.key?.fromMe) return false;
-  const wrapped = m.message.viewOnceMessage?.message || m.message.viewOnceMessageV2?.message || m.message.viewOnceMessageV2Extension?.message;
-  if(!wrapped) return false;
-  const type = Object.keys(wrapped).find(k => ['imageMessage','videoMessage','audioMessage'].includes(k));
-  if(!type) return false;
-  try{
-    const media = wrapped[type];
+function unwrapMessageContent(message) {
+  let current = message;
+  let viewOnce = false;
+  for (let i = 0; i < 8 && current; i++) {
+    if (current.ephemeralMessage?.message) { current = current.ephemeralMessage.message; continue; }
+    if (current.viewOnceMessage?.message) { current = current.viewOnceMessage.message; viewOnce = true; continue; }
+    if (current.viewOnceMessageV2?.message) { current = current.viewOnceMessageV2.message; viewOnce = true; continue; }
+    if (current.viewOnceMessageV2Extension?.message) { current = current.viewOnceMessageV2Extension.message; viewOnce = true; continue; }
+    if (current.documentWithCaptionMessage?.message) { current = current.documentWithCaptionMessage.message; continue; }
+    break;
+  }
+  return { message: current, viewOnce };
+}
+
+function ownerInboxJid(fallback) {
+  const number = String(settings.ownerNumber || (settings.ownerNumbers || [])[0] || '').replace(/\D/g, '');
+  return number ? number + '@s.whatsapp.net' : jidNormalizedUser(sock.user?.id || fallback || '');
+}
+
+async function recoverDeletedMessage(key) {
+  if (!global.antidelete || !key?.id) return;
+  const cached = messageStore.get(key.id);
+  if (!cached || Date.now() - cached.time > MESSAGE_STORE_TTL) { messageStore.delete(key.id); return; }
+  const original = cached.message;
+  const content = original.message || {};
+  const header = '╭─〔 🗑️ ANTI-DELETE RECOVERY 〕─╮\n│ 👤 From: ' + String(original.key?.participant || original.key?.remoteJid || 'unknown').split('@')[0] + '\n╰────────────────────╯';
+  try {
+    if (content.conversation || content.extendedTextMessage?.text) {
+      const body = content.conversation || content.extendedTextMessage.text;
+      await sock.sendMessage(ownerInboxJid(original.key?.remoteJid), { text: header + '\n\n' + body + '\n\n' + settings.footer }, { quoted: original });
+      return;
+    }
+    const unwrapped = unwrapMessageContent(content).message || {};
+    const type = ['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].find(k => unwrapped[k]);
+    if (!type) return;
+    const media = unwrapped[type];
     const stream = await downloadContentFromMessage(media, type.replace('Message',''));
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
-    const caption = media.caption ? `\n\n📝 *Original caption:* ${media.caption}` : '';
-    const recoveryHeader = `╭─〔 👁️ VIEW-ONCE RECOVERY 〕─╮\n│ 🟢 Media recovered successfully\n│ 📦 Type: *${type.replace('Message','').toUpperCase()}*\n╰────────────────────╯`;
-    if(type === 'imageMessage') await sock.sendMessage(m.key.remoteJid, { image: buffer, caption: recoveryHeader + caption }, { quoted:m });
-    if(type === 'videoMessage') await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: recoveryHeader + caption }, { quoted:m });
-    if(type === 'audioMessage') await sock.sendMessage(m.key.remoteJid, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted:m });
+    const target = ownerInboxJid(original.key?.remoteJid);
+    if (type === 'imageMessage') await sock.sendMessage(target, { image: buffer, caption: header + (media.caption ? '\n\n📝 ' + media.caption : '') + '\n\n' + settings.footer }, { quoted: original });
+    if (type === 'videoMessage') await sock.sendMessage(target, { video: buffer, caption: header + (media.caption ? '\n\n📝 ' + media.caption : '') + '\n\n' + settings.footer }, { quoted: original });
+    if (type === 'audioMessage') await sock.sendMessage(target, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted: original });
+    if (type === 'documentMessage') await sock.sendMessage(target, { document: buffer, fileName: media.fileName || 'recovered-file', mimetype: media.mimetype || 'application/octet-stream', caption: header + '\n\n' + settings.footer }, { quoted: original });
+    if (type === 'stickerMessage') await sock.sendMessage(target, { sticker: buffer }, { quoted: original });
+  } catch (error) { console.log(chalk.yellow('Anti-delete recovery failed: ' + error.message)); }
+  finally { messageStore.delete(key.id); }
+}
+
+sock.ev.on('messages.upsert', ({ messages }) => {
+  for (const m of messages || []) {
+    cacheIncomingMessage(m);
+    handleMessage(m).catch(error => console.log(chalk.red('Message handler failed: ' + error.message)));
+  }
+});
+
+sock.ev.on('messages.delete', async (event) => {
+  const keys = Array.isArray(event) ? event : (event?.keys || []);
+  for (const key of keys) await recoverDeletedMessage(key).catch(() => {});
+});
+
+async function handleViewOnce(m){
+  if(!global.antiviewonce || !m?.message || m.key?.fromMe) return false;
+  const unwrapped = unwrapMessageContent(m.message);
+  if(!unwrapped.viewOnce) return false;
+  const content = unwrapped.message || {};
+  const type = ['imageMessage','videoMessage','audioMessage','documentMessage'].find(k => content[k]);
+  if(!type) return false;
+  try {
+    const media = content[type];
+    const stream = await downloadContentFromMessage(media, type.replace('Message',''));
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
+    const header = '╭─〔 👁️ VIEW-ONCE RECOVERY 〕─╮\n│ 🟢 Media recovered successfully\n│ 📦 Type: *' + type.replace('Message','').toUpperCase() + '*\n│ 📍 Sent to owner inbox\n╰────────────────────╯';
+    const caption = media.caption ? '\n\n📝 *Original caption:* ' + media.caption : '';
+    const target = ownerInboxJid(m.key.remoteJid);
+    if(type === 'imageMessage') await sock.sendMessage(target, { image: buffer, caption: header + caption + '\n\n' + settings.footer }, { quoted:m });
+    if(type === 'videoMessage') await sock.sendMessage(target, { video: buffer, caption: header + caption + '\n\n' + settings.footer }, { quoted:m });
+    if(type === 'audioMessage') await sock.sendMessage(target, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted:m });
+    if(type === 'documentMessage') await sock.sendMessage(target, { document: buffer, fileName: media.fileName || 'view-once-file', mimetype: media.mimetype || 'application/octet-stream', caption: header + caption + '\n\n' + settings.footer }, { quoted:m });
     return true;
-  }catch(error){ console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message)); return false; }
+  } catch(error) { console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message)); return false; }
 }
 
 async function handleMessage(m){
