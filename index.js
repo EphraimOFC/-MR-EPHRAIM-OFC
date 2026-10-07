@@ -171,6 +171,31 @@ const sock = makeWASocket({
 });
 currentSock = sock;
 
+// Central response formatter: every normal bot response gets the same professional footer.
+// Media without a caption (audio/stickers) receives a small branded footer message after delivery.
+const rawSendMessage = sock.sendMessage.bind(sock);
+const brandedFooter = String(settings.footer || '').trim();
+const hasFooter = value => typeof value === 'string' && (
+  value.includes('MR EPHRAIM OFC') || value.includes('Powered by N TECH PRO')
+);
+sock.sendMessage = async (jid, content, options) => {
+  if(!content || typeof content !== 'object') return rawSendMessage(jid, content, options);
+  const next = { ...content };
+  if(typeof next.text === 'string' && brandedFooter && !hasFooter(next.text)){
+    next.text = next.text.trimEnd() + '\n\n' + brandedFooter;
+  }
+  if(typeof next.caption === 'string' && brandedFooter && !hasFooter(next.caption)){
+    next.caption = next.caption.trimEnd() + '\n\n' + brandedFooter;
+  } else if(brandedFooter && (next.image || next.video || next.document) && !next.caption){
+    next.caption = brandedFooter;
+  }
+  const sent = await rawSendMessage(jid, next, options);
+  if(brandedFooter && next.audio && !next.caption){
+    await rawSendMessage(jid, { text: brandedFooter }, options).catch(() => {});
+  }
+  return sent;
+};
+
 const commands = new Map();
 const cmdPath = path.join(__dirname, 'commands');
 function loadCommands(){
@@ -290,6 +315,9 @@ async function handleMessage(m){
   if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
     try { const p=JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson); if(p.id) body=p.id; } catch {}
   }
+  if(m.message?.listResponseMessage?.singleSelectReply?.selectedRowId){
+    body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+  }
   body = String(body || '').trim();
   if(!body) return;
   const sender = m.key.participant || m.key.remoteJid;
@@ -306,6 +334,16 @@ async function handleMessage(m){
   }
   if(/^\.(tagall|hidetag)\b/i.test(body) && !isOwner){
     return sock.sendMessage(m.chat, { text: '❌ Only Owner can use this!' }, { quoted:m }).catch(()=>{});
+  }
+  // Native menu buttons can call commands directly, keeping the UI fast and consistent.
+  if(body === 'main_menu') return runCommand(commands.get('menu'), m, []);
+  if(body === 'create_bot') return runCommand(commands.get('bot'), m, []);
+  if(body === 'visit_site') return sock.sendMessage(m.chat, {
+    text: '🌐 *E TECH OFC WEBSITE*\n\nTap the link below to open the official bot site:\n' + settings.botLink
+  }, { quoted:m }).catch(()=>{});
+  if(/^menu_\d$/.test(body)){
+    const menuId = body.slice(-1);
+    if(subMenus[menuId]) return sock.sendMessage(m.chat, { text: subMenus[menuId] }, { quoted:m }).catch(()=>{});
   }
   if(/^\d$/.test(body)){
     const expiresAt = menuReplyUntil.get(m.chat) || 0;
