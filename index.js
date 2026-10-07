@@ -390,7 +390,13 @@ async function handleMessage(m){
   }
   let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || '';
   if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
-    try { const p=JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson); if(p.id) body=p.id; } catch {}
+    try {
+      const response = m.message.interactiveResponseMessage.nativeFlowResponseMessage;
+      const raw = response.paramsJson;
+      const json = typeof raw === 'string' ? raw : Buffer.from(raw || '').toString();
+      const p = JSON.parse(json || '{}');
+      body = p.id || p.selectedId || p.display_text || body;
+    } catch {}
   }
   if(m.message?.listResponseMessage?.singleSelectReply?.selectedRowId){
     body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
