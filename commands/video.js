@@ -144,8 +144,7 @@ ${settings.footer}`
             caption:
 `🎬 *${video.title}*
 \n\n📺 Quality: *${quality}p*
-⚡ Delivered by E TECH OFC
-\n\n${settings.footer}`
+⚡ Delivered by E TECH OFC`
           },
           { quoted: m }
         );
@@ -166,8 +165,7 @@ ${settings.footer}`
           caption:
 `🎬 *${video.title}*
 \n\n📺 Quality: *${quality}p*
-⚡ Fast local fallback
-\n\n${settings.footer}`
+⚡ Fast local fallback`
         },
         { quoted: m }
       );
