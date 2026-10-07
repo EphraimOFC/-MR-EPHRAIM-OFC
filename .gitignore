@@ -5,7 +5,12 @@
 
 # WhatsApp auth/session data
 session/
+session*/
 sessions/
+sessions-*/
+*.auth/
+*.session/
 
 # Runtime/temp data
 temp/
+tmp/
