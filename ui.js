@@ -1,4 +1,5 @@
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys');\nconst fs = require('fs');
+const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys');
+const fs = require('fs');
 
 function quickReply(display_text, id){
   return {
@@ -8,8 +9,9 @@ function quickReply(display_text, id){
 }
 
 async function sendInteractive(conn, m, { title, body, image, buttons = [], footer = '⚡ Powered by N TECH PRO' }) {
+  const imageContent = image && fs.existsSync(image) ? { image: fs.readFileSync(image) } : { image: { url: image } };
   const media = image ? await prepareWAMessageMedia(
-    { image: { url: image } },
+    imageContent,
     { upload: conn.waUploadToServer }
   ) : null;
 
