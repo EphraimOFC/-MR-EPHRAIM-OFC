@@ -7,6 +7,7 @@ const axios = require('axios');
 const chalk = require('chalk');
 const moment = require('moment-timezone');
 const settings = require('./settings');
+const { startAllPairedBots } = require('./lib/paired-bot');
 
 const channelInviteCode = settings.channelInviteCode;
 const channelLink = settings.channelLink;
@@ -240,6 +241,7 @@ sock.ev.on('connection.update', async (update) => {
     global.botJid = jidNormalizedUser(sock.user?.id || '');
     global.botNumber = global.botJid.split('@')[0] || '';
     console.log(chalk.green(`✅ [${time}] E TECH OFC Connected as ${global.botNumber ? '+' + global.botNumber : 'WhatsApp account'}`));
+    startAllPairedBots(settings).catch(e => console.log(chalk.yellow('⚠️ Paired bot startup skipped: '+e.message)));
     try {
       if (!channelJID) {
         const meta = await sock.newsletterMetadata("invite", channelInviteCode);
