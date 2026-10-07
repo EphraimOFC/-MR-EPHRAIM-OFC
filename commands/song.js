@@ -4,8 +4,11 @@ const fs = require('fs');
 const path = require('path');
 
 const settings = require('../settings');
+const { sendInteractive, quickReply } = require('../ui');
+
 const tmpDir = path.join(__dirname, '../tmp');
 const searchCache = new Map();
+const pendingSongs = new Map();
 const SEARCH_TTL = 5 * 60 * 1000;
 
 function findTool(name) {
@@ -33,24 +36,42 @@ function mimeFor(ext) {
   return 'audio/mpeg';
 }
 
-function sendProcessCard(conn, m, video) {
-  const caption =
+async function sendChoiceCard(conn, m, video) {
+  const body =
 `╭─〔 🎵 E TECH SONG 〕─╮
 │
-│  🎧 *${video.title}*
-│  ⏱️ ${video.timestamp || 'Unknown'}
-│  🎤 ${video.author?.name || 'YouTube'}
+│ 🎧 *${video.title}*
+│ ⏱️ ${video.timestamp || 'Unknown'}
+│ 🎤 ${video.author?.name || 'YouTube'}
 │
-│  ⚡ Preparing fast audio...
+│ ⚡ Choose your download format
 │
-╰────────────────────╯
+╰────────────────────╯`;
 
-${settings.footer}`;
-  return conn.sendMessage(
-    m.chat,
-    { image: { url: video.thumbnail }, caption },
-    { quoted: m }
-  );
+  try {
+    await sendInteractive(conn, m, {
+      title: 'E TECH OFC • SONG',
+      body,
+      image: video.thumbnail,
+      footer: settings.footer,
+      buttons: [
+        quickReply('🎧 AUDIO', 'etech_song_audio'),
+        quickReply('📄 DOCUMENT', 'etech_song_document')
+      ]
+    });
+    return true;
+  } catch (error) {
+    console.log('Song interactive UI failed:', error.message);
+    await conn.sendMessage(
+      m.chat,
+      {
+        image: { url: video.thumbnail },
+        caption: body + '\n\nReply with *AUDIO* or *DOCUMENT*.\n\n' + settings.footer
+      },
+      { quoted: m }
+    );
+    return false;
+  }
 }
 
 function downloadAudio(url, id) {
@@ -86,57 +107,97 @@ function downloadAudio(url, id) {
   });
 }
 
+async function resolveVideo(query) {
+  const cacheKey = query.toLowerCase();
+  const cached = searchCache.get(cacheKey);
+  if (cached && Date.now() - cached.time < SEARCH_TTL) return cached.video;
+
+  const search = await yts(query);
+  if (!search.videos?.length) return null;
+
+  const video = search.videos[0];
+  searchCache.set(cacheKey, { video, time: Date.now() });
+  return video;
+}
+
 module.exports = {
   name: 'song',
   alias: ['play', 'music', 's'],
 
   async execute(m, { conn, text, args }) {
-    const raw = String(text || args.join(' ')).trim();
+    const action = String(args[0] || '').toLowerCase();
+    let query = String(text || '').trim();
 
-    if (!raw) {
+    if (action === 'etech_song_audio' || action === 'etech_song_document') {
+      query = pendingSongs.get(m.chat) || '';
+    } else {
+      query = String(text || args.join(' ')).trim();
+    }
+
+    if (!query) {
       await conn.sendMessage(
         m.chat,
-        { text: '🎵 *E TECH SONG*\n\nUse: *.song <song title or YouTube link>*\nExample: *.song Burna Boy - Last Last*' },
+        {
+          text: '🎵 *E TECH SONG*\n\nUse: *.song <song title or YouTube link>*\nExample: *.song Burna Boy - Last Last*'
+        },
         { quoted: m }
       );
       return false;
     }
 
-    const query = raw.replace(/^audio\s+/i, '').trim();
-    const cacheKey = query.toLowerCase();
-    let video = searchCache.get(cacheKey)?.video;
-
-    if (!video || Date.now() - searchCache.get(cacheKey).time > SEARCH_TTL) {
-      const search = await yts(query);
-      if (!search.videos?.length) {
-        await conn.sendMessage(m.chat, { text: '❌ No matching YouTube result was found.' }, { quoted: m });
-        return false;
-      }
-      video = search.videos[0];
-      searchCache.set(cacheKey, { video, time: Date.now() });
+    const video = await resolveVideo(query);
+    if (!video) {
+      await conn.sendMessage(m.chat, { text: '❌ No matching YouTube result was found.' }, { quoted: m });
+      return false;
     }
 
-    await sendProcessCard(conn, m, video);
+    if (action !== 'etech_song_audio' && action !== 'etech_song_document') {
+      pendingSongs.set(m.chat, query);
+      await sendChoiceCard(conn, m, video);
+      return true;
+    }
 
+    const isDocument = action === 'etech_song_document';
     const id = Date.now().toString();
     let filePath;
 
     try {
+      await conn.sendMessage(
+        m.chat,
+        { text: `⏳ Preparing ${isDocument ? 'document' : 'audio'} for *${video.title}*...` },
+        { quoted: m }
+      );
+
       filePath = await downloadAudio(video.url, id);
 
       const ext = path.extname(filePath).slice(1).toLowerCase();
       const buffer = fs.readFileSync(filePath);
       const fileName = `${cleanFileName(video.title)}.${ext}`;
 
-      await conn.sendMessage(
-        m.chat,
-        {
-          audio: buffer,
-          mimetype: mimeFor(ext),
-          ptt: false
-        },
-        { quoted: m }
-      );
+      if (isDocument) {
+        await conn.sendMessage(
+          m.chat,
+          {
+            document: buffer,
+            fileName,
+            mimetype: mimeFor(ext),
+            caption: `🎵 *${video.title}*`
+          },
+          { quoted: m }
+        );
+      } else {
+        await conn.sendMessage(
+          m.chat,
+          {
+            audio: buffer,
+            mimetype: mimeFor(ext),
+            ptt: false
+          },
+          { quoted: m }
+        );
+      }
+
+      pendingSongs.delete(m.chat);
       return true;
     } catch (error) {
       console.error('Song download failed:', error.message);
@@ -146,8 +207,8 @@ module.exports = {
           text:
 `╭─〔 ❌ SONG DOWNLOAD 〕─╮
 │
-│  Unable to download this track right now.
-│  Please try another song or YouTube link.
+│ Unable to download this track right now.
+│ Please try another song or YouTube link.
 │
 ╰────────────────────╯
 
