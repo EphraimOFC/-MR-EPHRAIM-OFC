@@ -1,57 +1,38 @@
+const pairCommand = require('./pair');
+
 module.exports = {
   name: "bot",
+  alias: ["createbot"],
   execute: async (sock, m, args, settings) => {
-    const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const pairingSite = settings.pairWebsite || "https://etechofc.vercel.app";
-    const channelLink = settings.channelLink;
+    const sender = String(m.key.participant || m.key.remoteJid || "").split("@")[0].replace(/[^0-9]/g,"");
+    const number = String(args[0] || sender).replace(/[^0-9]/g,"");
 
-    const text = `
-╭───◐ E TECH OFC - CREATE YOUR BOT ◐───╮
+    if(number.length < 10 || number.length > 15){
+      return sock.sendMessage(m.chat,{
+        text:`🤖 *E TECH OFC BOT CREATOR*
 
-Your Pair Request ID: *${pairCode}*
+Usage:
+• .bot 2348012345678
+• .pair 2348012345678
 
-To get your real WhatsApp Pair Code:
+The bot now generates the *real 8-character WhatsApp pairing code* directly. The old 6-character request ID has been removed.
 
-1️⃣ Go to: ${pairingSite}
-2️⃣ Enter your WhatsApp number
-3️⃣ Enter this ID: ${pairCode}
-4️⃣ You will get 8-digit Pair Code
-5️⃣ Link device on WhatsApp > Linked Devices
+🌐 Pairing site:
+${settings.pairWebsite}`
+      },{quoted:m});
+    }
 
-Your bot will auto-follow:
-${channelLink}
+    await sock.sendMessage(m.chat,{
+      text:`🤖 *E TECH OFC BOT CREATOR*
 
-╭─◐ Reply Number ◐─╮
-│ 1️⃣ MAIN MENU
-│ 2️⃣ TUTORIAL VIDEO
-│ 3️⃣ CHANNEL
-╰───◐
+📱 Number: *${number}*
+🔐 Starting secure pairing...
+\n\nYou will receive:
+• a real 8-character pairing code
+• a QR pairing option
+\n\n🌐 Backup pairing site: ${settings.pairWebsite}`
+    },{quoted:m});
 
-> ${settings.footer}
-`;
-
-    await sock.sendMessage(m.chat, {
-      image: { url: settings.menuImage },
-      caption: text,
-      contextInfo: {
-        externalAdReply: {
-          title: "E TECH OFC - Bot Pairing",
-          body: `Your Pair ID: ${pairCode} - Tap to get code`,
-          thumbnailUrl: settings.menuImage,
-          sourceUrl: pairingSite,
-          mediaType: 1,
-          renderLargerThumbnail: true
-        }
-      }
-    }, { quoted: m });
-
-    // Also send button with link
-    await sock.sendMessage(m.chat, {
-      text: `🔗 Get Pair Code Here:\n${pairingSite}\nID: *${pairCode}*`,
-      contextInfo: {
-        forwardingScore: 999,
-        isForwarded: true
-      }
-    }, { quoted: m });
+    return pairCommand.execute(sock,m,[number],settings);
   }
-}
+};
