@@ -373,21 +373,49 @@ async function handleMessage(m){
     sock.sendMessage(m.chat, { react:{ text:emoji, key:m.key } }).catch(()=>{});
     return;
   }
-  let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.buttonsResponseMessage?.selectedButtonId || m.message.templateButtonReplyMessage?.selectedId || '';
-  if(m.message?.interactiveResponseMessage?.nativeFlowResponseMessage){
-    try {
-      const response = m.message.interactiveResponseMessage.nativeFlowResponseMessage;
-      const raw = response.paramsJson;
-      const json = typeof raw === 'string' ? raw : Buffer.from(raw || '').toString();
-      const p = JSON.parse(json || '{}');
-      body = p.id || p.selectedId || p.display_text || body;
-    } catch {}
+  function extractInteractiveId(message){
+    if(!message || typeof message !== 'object') return '';
+    const direct =
+      message.buttonsResponseMessage?.selectedButtonId ||
+      message.templateButtonReplyMessage?.selectedId ||
+      message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      message.interactiveResponseMessage?.body?.text;
+    if(direct) return String(direct);
+    const native = message.interactiveResponseMessage?.nativeFlowResponseMessage;
+    if(native){
+      const raw = native.paramsJson;
+      try {
+        const json = typeof raw === 'string'
+          ? raw
+          : Buffer.isBuffer(raw)
+            ? raw.toString('utf8')
+            : raw instanceof Uint8Array
+              ? Buffer.from(raw).toString('utf8')
+              : String(raw || '');
+        const parsed = JSON.parse(json || '{}');
+        const id = parsed.id || parsed.selectedId || parsed.selected_id || parsed.display_text || parsed.displayText;
+        if(id) return String(id);
+      } catch (_) {}
+    }
+    for(const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']){
+      const nested = message[wrapper]?.message;
+      const id = extractInteractiveId(nested);
+      if(id) return id;
+    }
+    return '';
   }
-  if(m.message?.listResponseMessage?.singleSelectReply?.selectedRowId){
-    body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
-  }
+
+  let body =
+    m.message.conversation ||
+    m.message.extendedTextMessage?.text ||
+    extractInteractiveId(m.message) ||
+    '';
   body = String(body || '').trim();
   if(!body) return;
+  // Keep native button replies observable during setup/debugging.
+  if(!body.startsWith(settings.prefix) && /^(main_menu|create_bot|visit_site|menu_\\d|etech_song_|AUDIO|DOCUMENT)$/i.test(body)){
+    console.log(chalk.cyan('🔘 Button action received: ' + body));
+  }
   const sender = m.key.participant || m.key.remoteJid;
   const isOwner = isRealOwner(sender) || global.sudo?.includes(sender) || isRealOwner(m.chat);
   const chatIsGroup = m.chat.endsWith('@g.us');
