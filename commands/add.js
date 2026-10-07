@@ -3,11 +3,12 @@ module.exports={name:"add",execute:async(sock,m,a,s)=>{
   if(!m.chat.endsWith("@g.us")) return sock.sendMessage(m.chat,{text:"❌ This command is for groups only."},{quoted:m});
   const meta=await sock.groupMetadata(m.chat);
   const sender=jidNormalizedUser(m.key.participant||m.key.remoteJid);
-  const bot=jidNormalizedUser(sock.user?.id);
-  const sp=meta.participants.find(p=>jidNormalizedUser(p.id)===sender);
-  const bp=meta.participants.find(p=>jidNormalizedUser(p.id)===bot);
+  const botIds = [sock.user?.id, sock.user?.lid, sock.user?.phoneNumber].filter(Boolean).map(String);
+  const sp=meta.participants.find(p => [p.id, p.lid, p.phoneNumber].filter(Boolean).some(id => jidNormalizedUser(id) === sender));
+  const bp=meta.participants.find(p => [p.id, p.lid, p.phoneNumber].filter(Boolean).some(id => botIds.some(b => jidNormalizedUser(id) === jidNormalizedUser(b))));
+  const botIsAdmin = !!(bp && (bp.admin === 'admin' || bp.admin === 'superadmin' || bp.isAdmin || bp.isSuperAdmin));
   const isOwner=(s.protectedNumbers||s.ownerNumbers||[]).some(n=>sender.includes(String(n)));
-  if(!bp?.admin) return sock.sendMessage(m.chat,{text:"❌ Bot must be a group admin first."},{quoted:m});
+  if(!botIsAdmin) return sock.sendMessage(m.chat,{text:"❌ Bot must be a group admin first."},{quoted:m});
   if(!sp?.admin && !isOwner) return sock.sendMessage(m.chat,{text:"❌ Only group admins or the protected owner can add members."},{quoted:m});
   const num=String(a[0]||"").replace(/[^0-9]/g,"");
   if(!num) return sock.sendMessage(m.chat,{text:"❌ Usage: .add 2348012345678"},{quoted:m});
