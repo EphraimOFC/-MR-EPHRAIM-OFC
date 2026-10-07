@@ -3,6 +3,7 @@ const { execFile } = require('child_process')
 const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys')
 const fs = require('fs')
 const path = require('path')
+const { chaminduDownload } = require('../lib/media')
 const storePath = path.join(__dirname, '../tmp/song_store.json')
 const searchCache = new Map()
 const SEARCH_TTL = 5 * 60 * 1000
@@ -96,6 +97,19 @@ module.exports = {
      if(!videoData){ await conn.sendMessage(m.chat, { text: "❌ Session expired. Search again" }, { quoted: m }); return false }
      await conn.sendMessage(m.chat, { text: `⬇️ Downloading *${videoData.title}*...` }, { quoted: m })
      let fileName=path.join(__dirname, `../tmp/${id}.mp3`); let dir=path.dirname(fileName); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
+     // Prefer the requested Chamindu media API; fall back to local yt-dlp if the API is unavailable.
+     try{
+      const media = await chaminduDownload('ytmp3', videoData.url, '128');
+      if(type==='audio'){
+       await conn.sendMessage(m.chat, { audio: media.buffer, mimetype: media.mimetype || 'audio/mpeg' }, { quoted: m });
+      } else {
+       await conn.sendMessage(m.chat, { document: media.buffer, mimetype: media.mimetype || 'audio/mpeg', fileName: `${videoData.title}.mp3` }, { quoted: m });
+      }
+      let ns=getStore(); delete ns[id]; saveStore(ns);
+      return true;
+     }catch(apiError){
+      console.log('Chamindu song API failed, using yt-dlp fallback: '+apiError.message)
+     }
      const ytdlp = findTool('yt-dlp')
      const downloadArgs = [
       '--no-playlist',
