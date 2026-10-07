@@ -1,5 +1,6 @@
 module.exports = {
 name: "toolsmenu",
+alias: ["toolmenu"],
 async execute(sock, m) {
 let f = (m.pushName||"User").toUpperCase()
 let txt = `
@@ -14,14 +15,13 @@ let txt = `
  *┗━━━━━━━━━━━❥❥❥*
 
 *┏━━━━━━❥❥❥*
-*┃* \`.ping\` \`.alive\` \`.system\` \`.url\`
-*┃* \`.hide\` \`.unhide\` \`.fetch\`
-*┃* \`.sticker\` \`.toimg\`
-*┗━━━━━━❥❥❥*
-
-👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
-> *© Powered by E TECH OFC™*
-`
-await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
-}
-}
+*┃* \`.ping\` - bot speed
+*┃* \`.alive\` - check alive
+*┃* \`.system\` - system info
+*┃* \`.url\` - url to image
+*┃* \`.fetch\` - fetch url
+*┃* \`.hide\` - hide command
+*┃* \`.unhide\` - unhide command
+*┃* \`.sticker\` - image to sticker
+*┃* \`.toimg\` - sticker to image
+*┃* \`.remini
