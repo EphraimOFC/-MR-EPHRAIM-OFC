@@ -1,32 +1,35 @@
-const { sendInteractive, quickReply } = require('../ui');
 module.exports = {
-  name: "groupmenu",
-  execute: async (sock, m, args, settings) => {
-    const text = [
-      "╭─〔 👥 GROUP MENU 〕─╮",
-      "│ ➕ .add 234xxx",
-      "│ 👢 .kick @user",
-      "│ 👑 .promote @user",
-      "│ 🔻 .demote @user",
-      "│ 📢 .tagall / .hidetag",
-      "│ 🔒 .close  •  🔓 .open",
-      "│ 🚪 .leave",
-      "╰────────────────────╯",
-      "",
-      "🛡️ Protected owner numbers remain protected."
-    ].join("\n");
-    try {
-      await sendInteractive(sock,m,{
-        title:"E TECH OFC • GROUP",
-        body:text,
-        image:settings.menuImage,
-        footer:settings.buttonFooter || "⚡ Powered by N TECH PRO",
-        buttons:[
-          quickReply("🔓 OPEN",".open"),
-          quickReply("🔒 CLOSE",".close"),
-          quickReply("🏠 MAIN MENU",".menu")
-        ]
-      });
-    } catch(e){ await sock.sendMessage(m.chat,{text:text+"\n\n"+settings.footer},{quoted:m}); }
-  }
-};
+name: "groupmenu",
+alias: ["gmenu"],
+async execute(sock, m) {
+let f = (m.pushName||"User").toUpperCase()
+let txt = `
+*👥⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${f}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗚𝗥𝗢𝗨𝗣 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
+
+*┏━━━━━━❥❥❥*
+*┃* \`.add\` - add member
+*┃* \`.kick\` - kick member
+*┃* \`.promote\` - make admin
+*┃* \`.demote\` - remove admin
+*┃* \`.tagall\` - tag all members
+*┃* \`.hidetag\` - hide tag
+*┃* \`.open\` - open group
+*┃* \`.close\` - close group
+*┃* \`.link\` - group link
+*┃* \`.antilink\` - antilink on/off
+*┗━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
+}
+}
