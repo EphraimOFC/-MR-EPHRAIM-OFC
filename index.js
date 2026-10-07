@@ -115,8 +115,6 @@ const MESSAGE_STORE_MAX = 500;
 let currentSock = null;
 let pendingRestart = null;
 let botGeneration = 0;
-let authFailureStreak = 0;
-const AUTH_FAILURE_LIMIT = 3;
 
 function scheduleRestart(delayMs, reason) {
   if (pendingRestart) return;
@@ -176,30 +174,20 @@ const sock = makeWASocket({
 });
 currentSock = sock;
 
-// Central response formatter: every normal bot response gets the same professional footer.
-// Media without a caption (audio/stickers) receives a small branded footer message after delivery.
-const rawSendMessage = sock.sendMessage.bind(sock);
-const brandedFooter = String(settings.footer || '').trim();
-const hasFooter = value => typeof value === 'string' && (
-  value.includes('MR EPHRAIM OFC') || value.includes('Powered by E TECH OFC')
-);
-sock.sendMessage = async (jid, content, options) => {
-  if(!content || typeof content !== 'object') return rawSendMessage(jid, content, options);
-  const next = { ...content };
-  if(typeof next.text === 'string' && brandedFooter && !hasFooter(next.text)){
-    next.text = next.text.trimEnd() + '\n\n' + brandedFooter;
+let pairingCodeRequested = false;
+async function requestPairingCodeIfNeeded() {
+  const phone = String(process.env.PAIRING_NUMBER || '').replace(/\D/g, '');
+  if (!phone || pairingCodeRequested || state.creds.registered) return;
+  pairingCodeRequested = true;
+  try {
+    await delay(2000);
+    const code = await sock.requestPairingCode(phone);
+    console.log(chalk.cyan(`🔗 Pairing code for +${phone}: ${String(code).match(/.{1,4}/g)?.join('-') || code}`));
+  } catch (error) {
+    pairingCodeRequested = false;
+    console.log(chalk.red(`❌ Pairing code request failed: ${error.message}`));
   }
-  if(typeof next.caption === 'string' && brandedFooter && !hasFooter(next.caption)){
-    next.caption = next.caption.trimEnd() + '\n\n' + brandedFooter;
-  } else if(brandedFooter && (next.image || next.video || next.document) && !next.caption){
-    next.caption = brandedFooter;
-  }
-  const sent = await rawSendMessage(jid, next, options);
-  if(brandedFooter && next.audio && !next.caption){
-    await rawSendMessage(jid, { text: brandedFooter }, options).catch(() => {});
-  }
-  return sent;
-};
+}
 
 const commands = new Map();
 const cmdPath = path.join(__dirname, 'commands');
@@ -239,6 +227,9 @@ sock.ev.on('creds.update', async (creds) => {
 sock.ev.on('connection.update', async (update) => {
   const time = moment().tz("Africa/Lagos").format("HH:mm:ss");
   if (update.qr) qrcode.generate(update.qr, { small: true });
+  if(update.connection === "connecting" || update.qr){
+    requestPairingCodeIfNeeded().catch(error => console.log(chalk.red('Pairing request failed: '+error.message)));
+  }
   if(update.connection === "open"){
     if (myGeneration!== botGeneration) return;
     authFailureStreak = 0;
@@ -261,15 +252,9 @@ sock.ev.on('connection.update', async (update) => {
     const statusCode = update.lastDisconnect?.error?.output?.statusCode;
     const errorMessage = update.lastDisconnect?.error?.message || 'unknown error';
     const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-    const creds = state.creds || {};
-    const isAuthenticated =!!(creds.me?.id && creds.registrationId!= null && creds.signedIdentityKey);
-    if (isLoggedOut && isAuthenticated) authFailureStreak++; else if (!isLoggedOut) authFailureStreak = 0;
-    const canDiscard = isLoggedOut && (!isAuthenticated || authFailureStreak >= AUTH_FAILURE_LIMIT);
-    if (canDiscard) {
-      authFailureStreak = 0;
-      try { if (fs.existsSync(credsFile)) fs.rmSync(credsFile); if (fs.existsSync(credsBackup)) fs.rmSync(credsBackup); } catch (error) { console.log(chalk.red(`Could not clear credentials: ${error.message}`)); }
-      console.log(chalk.yellow(`🔐 Pairing reset (${isAuthenticated? 'session logged out' : 'pairing incomplete'}: ${statusCode || errorMessage})`));
-      scheduleRestart(3000, 'fresh pairing code/QR'); return;
+    if (isLoggedOut) {
+      console.log(chalk.red(`🔐 WhatsApp session logged out (${statusCode || errorMessage}). Auth files were preserved. Rename the session folder only when you intentionally want to relink.`));
+      return;
     }
     console.log(chalk.yellow(`Connection closed (${statusCode || errorMessage}); preserving auth and reconnecting`));
     scheduleRestart(3000, `server close ${statusCode || errorMessage}`);
