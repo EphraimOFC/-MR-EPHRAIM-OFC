@@ -162,12 +162,6 @@ module.exports = {
     let filePath;
 
     try {
-      await conn.sendMessage(
-        m.chat,
-        { text: `⏳ Preparing ${isDocument ? 'document' : 'audio'} for *${video.title}*...` },
-        { quoted: m }
-      );
-
       filePath = await downloadAudio(video.url, id);
 
       const ext = path.extname(filePath).slice(1).toLowerCase();
