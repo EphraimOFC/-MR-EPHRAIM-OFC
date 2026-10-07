@@ -1,31 +1,48 @@
 const fs=require('fs');
 const path=require('path');
+const { sendInteractive, quickReply } = require('../ui');
 
 module.exports={
   name:'alive',
   execute:async(sock,m,args,settings)=>{
-    const text=[
-      '╭─〔 ⚡ E TECH OFC 〕─╮',
-      '│ 👋 *I\'M ALIVE NOW*',
-      '╰────────────────────╯',
-      '',
-      '👑 Owner: *'+settings.ownerName+'*',
-      '🤖 Bot: *E TECH OFC*',
-      '🚀 Version: *2.0.0*',
-      '⚙️ Prefix: *'+settings.prefix+'*',
-      '🟢 Connection: *ONLINE*',
-      '⚡ Core: *FAST & ACTIVE*',
-      '',
-      '📂 *Menu:* .menu',
-      '🤖 *Pair:* .pair <number>',
-      '🌐 *Website:* '+settings.botLink,
-      '',
-      settings.footer
-    ].join('\n');
     const imagePath=path.resolve(__dirname,'..',settings.aliveImage||'');
+    const body=[
+      '✨ *WELCOME TO E TECH OFC*',
+      '',
+      '👋 Hello! I\'m alive and ready.',
+      '',
+      '╭───────────────╮',
+      '│ 👑 *OWNER*  → '+settings.ownerName,
+      '│ 🤖 *BOT*    → E TECH OFC',
+      '│ 🚀 *VERSION* → 2.0.0',
+      '│ ⚡ *STATUS* → ONLINE',
+      '╰───────────────╯',
+      '',
+      '⚡ *I\'M ALIVE NOW*',
+      '⏱️ Prefix → *'+settings.prefix+'*',
+      '',
+      '╭─〔 SELECT AN OPTION 〕─╮',
+      '│ Use the buttons below',
+      '╰───────────────────────╯'
+    ].join('\n');
+
+    const image=fs.existsSync(imagePath)?imagePath:null;
     try{
-      if(fs.existsSync(imagePath)) await sock.sendMessage(m.chat,{image:fs.readFileSync(imagePath),caption:text},{quoted:m});
-      else await sock.sendMessage(m.chat,{text:text},{quoted:m});
-    }catch(e){ await sock.sendMessage(m.chat,{text:text},{quoted:m}); }
+      await sendInteractive(sock,m,{
+        title:'E TECH OFC',
+        body,
+        image,
+        buttons:[
+          quickReply('↩ MAIN MENU 📜','main_menu'),
+          quickReply('↩ CREATE BOT 🤖','create_bot'),
+          quickReply('↩ VISIT SITE 🌐','visit_site')
+        ],
+        footer:settings.footer
+      });
+    }catch(e){
+      const fallback=body+'\n\n'+settings.footer;
+      if(image) await sock.sendMessage(m.chat,{image:fs.readFileSync(image),caption:fallback},{quoted:m});
+      else await sock.sendMessage(m.chat,{text:fallback},{quoted:m});
+    }
   }
 };
