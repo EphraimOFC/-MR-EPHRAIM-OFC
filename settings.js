@@ -11,7 +11,7 @@ module.exports = {
   antiBanOwner: true,
   antiKickOwner: true,
   prefix: ".",
-  footer: "👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*",
+  footer: "╭─〔 ⚔ E TECH OFC 〕─╮\\n│ 👨‍💻 Developer: *MR EPHRAIM OFC*\\n│ ⚡ Powered by *N TECH PRO*\\n╰────────────────────╯",\n  buttonFooter: "⚡ Powered by N TECH PRO",
   menuImage: "./assets/e-tech-ofc.png",
   aliveImage: "./assets/e-tech-ofc.png",
   sessionName: "session",
@@ -19,5 +19,5 @@ module.exports = {
   channelLink: "https://whatsapp.com/channel/0029VbCrylk2Q0MbaKpp16",
   channelInviteCode: "0029VbCrylk2Q0MbaKpp16",
   pairWebsite: "https://e-tech-ofc-pair-1.onrender.com",
-  botLink: "https://e-tech-ofc-pair-1.onrender.com"
-}
+  botLink: "https://e-tech-ofc-pair-1.onrender.com",
+  api: {\n    chamindu: "https://api.chamindu.site/api/v1"\n  }\n}
