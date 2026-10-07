@@ -1,38 +1,34 @@
+const { sendInteractive, quickReply } = require('../ui');
 module.exports = {
-name: "ownermenu",
-execute: async (sock, m, args, settings) => {
-  const PROTECTED = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);
-  const sender = m.key.participant || m.key.remoteJid;
-  const isOwner = PROTECTED.some(num => sender.includes(num));
-  
-  if(!isOwner){
-    return await sock.sendMessage(m.key.remoteJid, { 
-      text: `❌ *OWNER ONLY*\n\nOnly E TECH OFC Owner can use this!\n\n👑 Owner: MR EPHRAIM OFC\n📱 Account: Current connected WhatsApp\n\n${settings.footer}` 
-    }, { quoted: m });
+  name: "ownermenu",
+  execute: async (sock, m, args, settings) => {
+    const protectedNumbers = (settings.protectedNumbers || settings.ownerNumbers || []).map(String);
+    const sender = m.key.participant || m.key.remoteJid;
+    if(!protectedNumbers.some(num => String(sender).includes(num))){
+      return sock.sendMessage(m.chat, { text: "❌ *OWNER ONLY*\n\nOnly the protected E TECH OFC owner can use this command." }, { quoted:m });
+    }
+    const text = [
+      "╭─〔 👑 OWNER MENU 〕─╮",
+      "│ 🔗 .glink / .glinkreset",
+      "│ 👑 .setsudo / .delsudo",
+      "│ 🚫 .ban / .unban",
+      "│ 📞 .setcall / .delcall",
+      "│ 🔐 .privacy",
+      "│ ⚙️ .setting",
+      "╰────────────────────╯"
+    ].join("\n");
+    try {
+      await sendInteractive(sock,m,{
+        title:"E TECH OFC • OWNER",
+        body:text,
+        image:settings.menuImage,
+        footer:settings.buttonFooter || "⚡ Powered by N TECH PRO",
+        buttons:[
+          quickReply("⚙️ SETTINGS",".setting"),
+          quickReply("🔐 PRIVACY",".privacy"),
+          quickReply("🏠 MAIN MENU",".menu")
+        ]
+      });
+    } catch(e){ await sock.sendMessage(m.chat,{text:text+"\n\n"+settings.footer},{quoted:m}); }
   }
-
-  const text = `
-╭───◐ *OWNER MENU - E TECH OFC* 👑
-╰───◐
-╭───◐
-│ 🔗 .glink - Group Link
-│ 🔄 .glinkreset - Reset Link
-│ 👑 .setsudo - Add Sudo
-│ ❌ .delsudo - Remove Sudo
-│ 🔨 .ban - Ban User
-│ ✅ .unban - Unban User
-│ 📞 .setcall on/off
-│ 📞 .delcall
-│ ⚙️ .privacy
-│ 📊 .setting
-╰───◐
-╭───◐
-│ 👑 *MR EPHRAIM OFC*
-│ 📱 *Account: Current connected WhatsApp*
-╰───◐
-
-${settings.footer}`;
-
-  try { await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m }); } catch (e) { console.log('Menu image failed: '+e.message); await sock.sendMessage(m.chat, { text }, { quoted: m }); }
-}
-}
+};
