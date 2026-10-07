@@ -8,7 +8,7 @@ function quickReply(display_text, id){
   };
 }
 
-async function sendInteractive(conn, m, { title, body, image, buttons = [], footer = '⚡ Powered by N TECH PRO' }) {
+async function sendInteractive(conn, m, { title, body, image, buttons = [], footer = '⚡ Powered by E TECH OFC™' }) {
   const imageContent = image && fs.existsSync(image) ? { image: fs.readFileSync(image) } : { image: { url: image } };
   const media = image ? await prepareWAMessageMedia(
     imageContent,
