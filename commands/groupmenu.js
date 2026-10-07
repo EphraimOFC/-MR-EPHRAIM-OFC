@@ -1,36 +1,35 @@
 module.exports = {
 name: "groupmenu",
-execute: async (sock, m, args, settings) => {
-const text = `
-╭───◐ *GROUP MENU - E TECH OFC* 👥
-╰───◐
-╭───◐
-│ 👥 .tagall - Tag All
-│ 👁️ .hidetag - Hide Tag
-│ 👢 .kick @user - Kick
-│ ➕ .add 234xxx - Add
-│ 👑 .promote @user - Promote
-│ 🔻 .demote @user - Demote
-│ 🔓 .open - Open Group
-│ 🔒 .close - Close Group
-│ 🔗 .link - Group Link
-│ 🔄 .revoke - Revoke Link
-│ 📝 .setname - Set Name
-│ 📄 .setdesc - Set Desc
-│ 🚫 .antilink on/off
-│ 🤖 .antibot on/off
-╰───◐
-╭───◐ *PROTECTION* 🛡️
-│ 🔒 2347072956206 - Main Protected
-│ 🔒 2348108717744 - Backup Protected
-│ ✅ Cannot be kicked/banned
-╰───◐
-╭───◐
-│ 👑 MR EPHRAIM OFC
-│ 🤖 E TECH OFC V2.0
-╰───◐
+alias: ["gmenu"],
+async execute(sock, m) {
+let f = (m.pushName||"User").toUpperCase()
+let txt = `
+*👥⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${f}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗚𝗥𝗢𝗨𝗣 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
 
-> ${settings.footer}`;
-await sock.sendMessage(m.key.remoteJid, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
+*┏━━━━━━❥❥❥*
+*┃* \`.add\` - add member
+*┃* \`.kick\` - kick member
+*┃* \`.promote\` - make admin
+*┃* \`.demote\` - remove admin
+*┃* \`.tagall\` - tag all members
+*┃* \`.hidetag\` - hide tag
+*┃* \`.open\` - open group
+*┃* \`.close\` - close group
+*┃* \`.link\` - group link
+*┃* \`.antilink\` - antilink on/off
+*┗━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
 }
 }
