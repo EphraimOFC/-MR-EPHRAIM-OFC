@@ -292,9 +292,10 @@ async function handleViewOnce(m){
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
-    const caption = media.caption ? `\n\n${media.caption}` : '';
-    if(type === 'imageMessage') await sock.sendMessage(m.key.remoteJid, { image: buffer, caption: '👁️ *Anti-ViewOnce*'+caption }, { quoted:m });
-    if(type === 'videoMessage') await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: '👁️ *Anti-ViewOnce*'+caption }, { quoted:m });
+    const caption = media.caption ? `\n\n📝 *Original caption:* ${media.caption}` : '';
+    const recoveryHeader = `╭─〔 👁️ VIEW-ONCE RECOVERY 〕─╮\n│ 🟢 Media recovered successfully\n│ 📦 Type: *${type.replace('Message','').toUpperCase()}*\n╰────────────────────╯`;
+    if(type === 'imageMessage') await sock.sendMessage(m.key.remoteJid, { image: buffer, caption: recoveryHeader + caption }, { quoted:m });
+    if(type === 'videoMessage') await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: recoveryHeader + caption }, { quoted:m });
     if(type === 'audioMessage') await sock.sendMessage(m.key.remoteJid, { audio: buffer, mimetype: media.mimetype || 'audio/ogg', ptt: !!media.ptt }, { quoted:m });
     return true;
   }catch(error){ console.log(chalk.yellow('Anti-ViewOnce failed: ' + error.message)); return false; }
