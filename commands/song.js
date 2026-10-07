@@ -9,6 +9,7 @@ const { sendInteractive, quickReply } = require('../ui');
 const tmpDir = path.join(__dirname, '../tmp');
 const searchCache = new Map();
 const pendingSongs = new Map();
+const PREFETCH_TTL = 10 * 60 * 1000;
 const SEARCH_TTL = 5 * 60 * 1000;
 
 function findTool(name) {
@@ -126,95 +127,74 @@ module.exports = {
 
   async execute(m, { conn, text, args }) {
     const action = String(args[0] || '').toLowerCase();
-    let query = String(text || '').trim();
+    const isChoice = action === 'etech_song_audio' || action === 'etech_song_document';
+    let entry = pendingSongs.get(m.chat);
+    let query;
+    let video;
 
-    if (action === 'etech_song_audio' || action === 'etech_song_document') {
-      query = pendingSongs.get(m.chat) || '';
+    if (isChoice && entry) {
+      query = entry.query;
+      video = entry.video;
     } else {
       query = String(text || args.join(' ')).trim();
+      if (!query) {
+        await conn.sendMessage(m.chat, { text: '🎵 *E TECH SONG*\n\nUse: *.song <song title or YouTube link>*\nExample: *.song Burna Boy - Last Last*' }, { quoted: m });
+        return false;
+      }
+      video = await resolveVideo(query);
+      if (!video) {
+        await conn.sendMessage(m.chat, { text: '❌ No matching YouTube result was found.' }, { quoted: m });
+        return false;
+      }
     }
 
-    if (!query) {
-      await conn.sendMessage(
-        m.chat,
-        {
-          text: '🎵 *E TECH SONG*\n\nUse: *.song <song title or YouTube link>*\nExample: *.song Burna Boy - Last Last*'
-        },
-        { quoted: m }
-      );
+    if (!isChoice) {
+      const id = Date.now().toString();
+      const downloadPromise = downloadAudio(video.url, id);
+      entry = { query, video, id, promise: downloadPromise, created: Date.now() };
+      pendingSongs.set(m.chat, entry);
+      downloadPromise.catch(() => {});
+      entry.timer = setTimeout(() => {
+        const current = pendingSongs.get(m.chat);
+        if (current?.id !== id) return;
+        pendingSongs.delete(m.chat);
+        downloadPromise.then(file => { try { if (file && fs.existsSync(file)) fs.unlinkSync(file); } catch {} }).catch(() => {});
+      }, PREFETCH_TTL);
+
+      const shown = await sendChoiceCard(conn, m, video);
+      return shown;
+    }
+
+    if (!entry) {
+      await conn.sendMessage(m.chat, { text: '⌛ Song selection expired. Please run *.song <title>* again.' }, { quoted: m });
       return false;
-    }
-
-    const video = await resolveVideo(query);
-    if (!video) {
-      await conn.sendMessage(m.chat, { text: '❌ No matching YouTube result was found.' }, { quoted: m });
-      return false;
-    }
-
-    if (action !== 'etech_song_audio' && action !== 'etech_song_document') {
-      pendingSongs.set(m.chat, query);
-      await sendChoiceCard(conn, m, video);
-      return true;
     }
 
     const isDocument = action === 'etech_song_document';
-    const id = Date.now().toString();
-    let filePath;
-
+    let filePath = null;
     try {
-      filePath = await downloadAudio(video.url, id);
-
+      filePath = await entry.promise;
+      if (!filePath || !fs.existsSync(filePath)) throw new Error('Prefetched audio is no longer available.');
       const ext = path.extname(filePath).slice(1).toLowerCase();
       const buffer = fs.readFileSync(filePath);
       const fileName = `${cleanFileName(video.title)}.${ext}`;
 
       if (isDocument) {
-        await conn.sendMessage(
-          m.chat,
-          {
-            document: buffer,
-            fileName,
-            mimetype: mimeFor(ext),
-            caption: `🎵 *${video.title}*`
-          },
-          { quoted: m }
-        );
+        await conn.sendMessage(m.chat, { document: buffer, fileName, mimetype: mimeFor(ext), caption: `🎵 *${video.title}*` }, { quoted: m });
       } else {
-        await conn.sendMessage(
-          m.chat,
-          {
-            audio: buffer,
-            mimetype: mimeFor(ext),
-            ptt: false
-          },
-          { quoted: m }
-        );
+        await conn.sendMessage(m.chat, { audio: buffer, mimetype: mimeFor(ext), ptt: false }, { quoted: m });
       }
-
       pendingSongs.delete(m.chat);
+      if (entry.timer) clearTimeout(entry.timer);
       return true;
     } catch (error) {
       console.error('Song download failed:', error.message);
-      await conn.sendMessage(
-        m.chat,
-        {
-          text:
-`╭─〔 ❌ SONG DOWNLOAD 〕─╮
-│
-│ Unable to download this track right now.
-│ Please try another song or YouTube link.
-│
-╰────────────────────╯
-
-${settings.footer}`
-        },
-        { quoted: m }
-      );
+      pendingSongs.delete(m.chat);
+      if (entry.timer) clearTimeout(entry.timer);
+      await conn.sendMessage(m.chat, { text: '╭─〔 ❌ SONG DOWNLOAD 〕─╮\n│ Unable to prepare this track.\n│ Please run *.song* again and choose a format.\n╰────────────────────╯\n\n' + settings.footer }, { quoted: m });
       return false;
     } finally {
-      if (filePath) {
-        try { fs.unlinkSync(filePath); } catch {}
-      }
+      if (filePath) { try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {} }
     }
   }
 };
