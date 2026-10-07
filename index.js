@@ -357,6 +357,9 @@ async function handleMessage(m){
     return;
   }
   if(body.startsWith('etech_song_') && commands.has('song')) return runCommand(commands.get('song'), m, [body]);
+  if(/^(AUDIO|DOCUMENT)$/i.test(body) && commands.has('song')){
+    return runCommand(commands.get('song'), m, ['etech_song_' + body.toLowerCase()]);
+  }
   if(!body.startsWith(settings.prefix)) return;
   const parts = body.slice(settings.prefix.length).trim().split(/\s+/);
   const cmdName = (parts.shift() || '').toLowerCase();
