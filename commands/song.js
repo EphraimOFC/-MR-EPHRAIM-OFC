@@ -1,169 +1,183 @@
-const yts = require('yt-search')
-const { execFile } = require('child_process')
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys')
-const fs = require('fs')
-const path = require('path')
-const { chaminduDownload } = require('../lib/media')
-const storePath = path.join(__dirname, '../tmp/song_store.json')
-const searchCache = new Map()
-const SEARCH_TTL = 5 * 60 * 1000
-function findTool(name){
- const exe = process.platform === 'win32' ? name + '.exe' : name
- const links = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Links', exe) : ''
- return links && fs.existsSync(links) ? links : exe
-}
-function getStore(){ try{ if(fs.existsSync(storePath)) return JSON.parse(fs.readFileSync(storePath)); return {} }catch{ return {} } }
-function saveStore(d){ let dir=path.dirname(storePath); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(storePath, JSON.stringify(d)) }
-async function sendSongButtons(conn, m, caption, thumbnail, videoId) {
- const media = await prepareWAMessageMedia(
-  { image: { url: thumbnail } },
-  { upload: conn.waUploadToServer }
- );
- const buttons = [
-  proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
-   name: 'quick_reply',
-   buttonParamsJson: JSON.stringify({ display_text: '🎧 AUDIO', id: `etech_audio_${videoId}` })
-  }),
-  proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
-   name: 'quick_reply',
-   buttonParamsJson: JSON.stringify({ display_text: '📁 DOCUMENT', id: `etech_doc_${videoId}` })
-  })
- ];
- const interactiveMessage = proto.Message.InteractiveMessage.create({
-  header: proto.Message.InteractiveMessage.Header.create({
-   title: '🎵 E TECH SONG DOWNLOADER',
-   hasMediaAttachment: true,
-   ...media
-  }),
-  body: proto.Message.InteractiveMessage.Body.create({ text: caption }),
-  footer: proto.Message.InteractiveMessage.Footer.create({ text: 'Choose format 👇' }),
-  nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-   buttons,
-   messageParamsJson: '{}',
-   messageVersion: 1
-  })
- });
- const msg = generateWAMessageFromContent(
-  m.chat,
-  {
-   viewOnceMessage: {
-    message: {
-     messageContextInfo: {
-      deviceListMetadata: {},
-      deviceListMetadataVersion: 2
-     },
-     interactiveMessage
-    }
-   }
-  },
-  { quoted: m, userJid: conn.user.id }
- );
- const bizNode = {
-  tag: 'biz',
-  attrs: {
-   actual_actors: '2',
-   host_storage: '2',
-   privacy_mode_ts: String(Math.floor(Date.now() / 1000) - 77980457)
-  },
-  content: [
-   {
-    tag: 'interactive',
-    attrs: { type: 'native_flow', v: '1' },
-    content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }]
-   },
-   {
-    tag: 'quality_control',
-    attrs: { source_type: 'third_party' }
-   }
-  ]
- };
- const additionalNodes = isJidGroup(m.chat)
-  ? [bizNode]
-  : [{ tag: 'bot', attrs: { biz_bot: '1' } }, bizNode];
- await conn.relayMessage(m.chat, msg.message, {
-  messageId: msg.key.id,
-  additionalNodes
- });
+const yts = require('yt-search');
+const { execFile } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const settings = require('../settings');
+const tmpDir = path.join(__dirname, '../tmp');
+const searchCache = new Map();
+const SEARCH_TTL = 5 * 60 * 1000;
+
+function findTool(name) {
+  const exe = process.platform === 'win32' ? name + '.exe' : name;
+  const wingetPath = process.platform === 'win32'
+    ? path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Links', exe)
+    : '';
+  return wingetPath && fs.existsSync(wingetPath) ? wingetPath : exe;
 }
 
-module.exports = {
- name: "song", alias: ["play","music","s"],
- async execute(m, { conn, text, args }) {
-  let query = text || args.join(" ").trim()
-  let buttonId = m?.message?.buttonsResponseMessage?.selectedButtonId || m?.message?.templateButtonReplyMessage?.selectedId || ""
-  if(m?.message?.interactiveResponseMessage?.nativeFlowResponseMessage){ try{ let p=JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson); buttonId=p.id||"" }catch{} }
-  if(buttonId.startsWith("etech_")){
-     let parts=buttonId.split("_"); let type=parts[1]; let id=parts.slice(2).join("_"); let store=getStore(); let videoData=store[id];
-     if(!videoData){ await conn.sendMessage(m.chat, { text: "❌ Session expired. Search again" }, { quoted: m }); return false }
-     await conn.sendMessage(m.chat, { text: `⬇️ Downloading *${videoData.title}*...` }, { quoted: m })
-     let fileName=path.join(__dirname, `../tmp/${id}.mp3`); let dir=path.dirname(fileName); if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
-     // Prefer the requested Chamindu media API; fall back to local yt-dlp if the API is unavailable.
-     try{
-      const media = await chaminduDownload('ytmp3', videoData.url, '128');
-      if(type==='audio'){
-       await conn.sendMessage(m.chat, { audio: media.buffer, mimetype: media.mimetype || 'audio/mpeg' }, { quoted: m });
-      } else {
-       await conn.sendMessage(m.chat, { document: media.buffer, mimetype: media.mimetype || 'audio/mpeg', fileName: `${videoData.title}.mp3` }, { quoted: m });
-      }
-      let ns=getStore(); delete ns[id]; saveStore(ns);
-      return true;
-     }catch(apiError){
-      console.log('Chamindu song API failed, using yt-dlp fallback: '+apiError.message)
-     }
-     const ytdlp = findTool('yt-dlp')
-     const downloadArgs = [
+function cleanFileName(name) {
+  return String(name || 'song')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'song';
+}
+
+function mimeFor(ext) {
+  const e = String(ext || '').toLowerCase();
+  if (e === 'm4a') return 'audio/mp4';
+  if (e === 'mp3') return 'audio/mpeg';
+  if (e === 'webm') return 'audio/webm';
+  if (e === 'ogg' || e === 'opus') return 'audio/ogg; codecs=opus';
+  return 'audio/mpeg';
+}
+
+function sendProcessCard(conn, m, video) {
+  const caption =
+`╭─〔 🎵 E TECH SONG 〕─╮
+│
+│  🎧 *${video.title}*
+│  ⏱️ ${video.timestamp || 'Unknown'}
+│  🎤 ${video.author?.name || 'YouTube'}
+│
+│  ⚡ Preparing fast audio...
+│
+╰────────────────────╯
+
+${settings.footer}`;
+  return conn.sendMessage(
+    m.chat,
+    { image: { url: video.thumbnail }, caption },
+    { quoted: m }
+  );
+}
+
+function downloadAudio(url, id) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+    const outputBase = path.join(tmpDir, `song-${id}`);
+    const args = [
       '--no-playlist',
-      '--extract-audio',
-      '--audio-format', 'mp3',
-      '--audio-quality', '0',
+      '-f', 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
       '--concurrent-fragments', '4',
-      '--retries', '2',
-      '--fragment-retries', '2',
+      '--retries', '1',
+      '--fragment-retries', '1',
       '--socket-timeout', '15',
       '--no-warnings',
       '--quiet',
-      '-o', fileName,
-      videoData.url
-     ]
-     const downloadResult = await new Promise((resolve) => {
-      execFile(ytdlp, downloadArgs, { windowsHide: true, maxBuffer: 1024 * 1024 }, async (err) => {
-       if(err || !fs.existsSync(fileName)){
-        await conn.sendMessage(m.chat, { text: "❌ Download failed on server. Install yt-dlp + ffmpeg on host." }, { quoted: m });
-        return resolve(false);
-       }
-       try{
-        if(type==='audio'){
-         await conn.sendMessage(m.chat, { audio: fs.readFileSync(fileName), mimetype: 'audio/mpeg' }, { quoted: m });
-        } else {
-         await conn.sendMessage(m.chat, { document: fs.readFileSync(fileName), mimetype: 'audio/mpeg', fileName: `${videoData.title}.mp3` }, { quoted: m });
-        }
-        return resolve(true);
-       }catch(error){
-        await conn.sendMessage(m.chat, { text: "❌ Could not send downloaded song: " + error.message }, { quoted: m }).catch(()=>{});
-        return resolve(false);
-       }finally{
-        try{ fs.unlinkSync(fileName) }catch{}
-        let ns=getStore(); delete ns[id]; saveStore(ns);
-       }
-      });
-     });
-     return downloadResult
-  }
-  if(!query){ await conn.sendMessage(m.chat, { text: "🎵 Example:.song Seyi Vibez - Chance" }, { quoted: m }); return false }
-  const cacheKey = query.toLowerCase().trim()
-  let video = searchCache.get(cacheKey)?.video
-  if(!video || Date.now() - searchCache.get(cacheKey).time > SEARCH_TTL){
-    const search = await yts(query + " song"); if(!search.videos.length){ await conn.sendMessage(m.chat, { text: "❌ No song found" }, { quoted: m }); return false }
-    video=search.videos[0]
-    searchCache.set(cacheKey, { video, time: Date.now() })
-  } let videoId=Date.now().toString(); let store=getStore(); store[videoId]={ url: video.url, title: video.title }; saveStore(store);
-  let caption=`*🎵 E TECH SONG DOWNLOADER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n\n${conn.user.name || "E TECH OFC"}\n\n${require('../settings').footer}`
-  try {
-    await sendSongButtons(conn, m, caption, video.thumbnail, videoId)
-  } catch (error) {
-    console.log('Native song buttons failed: ' + error.message)
-    await conn.sendMessage(m.chat, { text: `${caption}\n\n⚠️ Buttons could not be delivered. Please run the song command again.` }, { quoted: m })
-  }
-  return true
- }
+      '-o', `${outputBase}.%(ext)s`,
+      url
+    ];
+
+    execFile(findTool('yt-dlp'), args, {
+      windowsHide: true,
+      maxBuffer: 2 * 1024 * 1024
+    }, (error) => {
+      if (error) return reject(error);
+
+      const file = fs.readdirSync(tmpDir)
+        .find(name => name.startsWith(`song-${id}.`));
+
+      if (!file) return reject(new Error('yt-dlp completed without an audio file.'));
+      resolve(path.join(tmpDir, file));
+    });
+  });
 }
+
+module.exports = {
+  name: 'song',
+  alias: ['play', 'music', 's'],
+
+  async execute(m, { conn, text, args }) {
+    const raw = String(text || args.join(' ')).trim();
+
+    if (!raw) {
+      await conn.sendMessage(
+        m.chat,
+        { text: '🎵 *E TECH SONG*\n\nUse: *.song <song title or YouTube link>*\nExample: *.song Burna Boy - Last Last*' },
+        { quoted: m }
+      );
+      return false;
+    }
+
+    const query = raw.replace(/^audio\s+/i, '').trim();
+    const cacheKey = query.toLowerCase();
+    let video = searchCache.get(cacheKey)?.video;
+
+    if (!video || Date.now() - searchCache.get(cacheKey).time > SEARCH_TTL) {
+      const search = await yts(query);
+      if (!search.videos?.length) {
+        await conn.sendMessage(m.chat, { text: '❌ No matching YouTube result was found.' }, { quoted: m });
+        return false;
+      }
+      video = search.videos[0];
+      searchCache.set(cacheKey, { video, time: Date.now() });
+    }
+
+    await sendProcessCard(conn, m, video);
+
+    const id = Date.now().toString();
+    let filePath;
+
+    try {
+      filePath = await downloadAudio(video.url, id);
+
+      const ext = path.extname(filePath).slice(1).toLowerCase();
+      const buffer = fs.readFileSync(filePath);
+      const fileName = `${cleanFileName(video.title)}.${ext}`;
+
+      await conn.sendMessage(
+        m.chat,
+        {
+          audio: buffer,
+          mimetype: mimeFor(ext),
+          ptt: false
+        },
+        { quoted: m }
+      );
+
+      await conn.sendMessage(
+        m.chat,
+        {
+          text:
+`╭─〔 🎧 DOWNLOAD COMPLETE 〕─╮
+│
+│  *${video.title}*
+│  📦 ${fileName}
+│  ⚡ Fast audio delivery
+│
+╰────────────────────╯
+
+${settings.footer}`
+        },
+        { quoted: m }
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Song download failed:', error.message);
+      await conn.sendMessage(
+        m.chat,
+        {
+          text:
+`╭─〔 ❌ SONG DOWNLOAD 〕─╮
+│
+│  Unable to download this track right now.
+│  Please try another song or YouTube link.
+│
+╰────────────────────╯
+
+${settings.footer}`
+        },
+        { quoted: m }
+      );
+      return false;
+    } finally {
+      if (filePath) {
+        try { fs.unlinkSync(filePath); } catch {}
+      }
+    }
+  }
+};
