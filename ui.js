@@ -1,4 +1,4 @@
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys');
+const { generateWAMessageFromContent, prepareWAMessageMedia, proto, isJidGroup } = require('@whiskeysockets/baileys');\nconst fs = require('fs');
 
 function quickReply(display_text, id){
   return {
