@@ -1,7 +1,29 @@
 module.exports = {
 name: "aimenu",
-execute: async (sock, m, args, settings) => {
-const text = `╭───◐\n│ 🤖 AI MENU\n╰───◐\n╭───◐\n│.ai\n│.gpt\n│.imagine\n│.gemini\n╰───◐\n> ${settings.footer}`;
-await sock.sendMessage(m.chat, { image: { url: settings.menuImage }, caption: text }, { quoted: m });
+async execute(sock, m) {
+let f = (m.pushName||"User").toUpperCase()
+let txt = `
+*🤖⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${f}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗔𝗜 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
+
+*┏━━━━━━❥❥❥*
+*┃* \`.ai\` - chat with ai
+*┃* \`.gpt\` - gpt-4
+*┃* \`.imagine\` - ai image gen
+*┃* \`.gemini\` - google gemini
+*┃* \`.flux\` - flux ai
+*┗━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
 }
 }
