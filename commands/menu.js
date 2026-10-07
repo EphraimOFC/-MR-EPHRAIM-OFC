@@ -1,48 +1,51 @@
-const fs=require('fs');
-const path=require('path');
-const { sendInteractive, quickReply } = require('../ui');
+module.exports = {
+name: "menu",
+alias: ["allmenu","help"],
+async execute(sock, m, args, settings) {
+let pushName = m.pushName || "User"
+let fancy = pushName.toUpperCase()
+let totalCmd = 120
+let uptime = clockString(process.uptime()*1000)
 
-module.exports={
-  name:'menu',
-  execute:async(sock,m,args,settings)=>{
-    const imagePath=path.resolve(__dirname,'..',settings.menuImage||'');
-    const body=[
-      '✨ *WELCOME TO E TECH OFC*',
-      '',
-      '👋 Hello! Welcome back.',
-      '',
-      '╭───────────────╮',
-      '│ 👑 *OWNER*  → '+settings.ownerName,
-      '│ 🤖 *BOT*    → E TECH OFC',
-      '│ 🚀 *VERSION* → 2.0.0',
-      '│ ⚡ *STATUS* → ONLINE',
-      '╰───────────────╯',
-      '',
-      '⚡ *MAIN MENU*',
-      '',
-      'Choose a section using the buttons below.'
-    ].join('\n');
+let txt = `
+*🏠⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${fancy}𓂃✍︎𝄞*
+*╰────────────────❂*
+ *┏━━━━━━━━━━━❥❥❥*
+ *┃* \`𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨\`
+ *┗━━━━━━━━━━━❥❥❥*
 
-    const image=fs.existsSync(imagePath)?imagePath:null;
-    try{
-      await sendInteractive(sock,m,{
-        title:'E TECH OFC • MAIN MENU',
-        body,
-        image,
-        buttons:[
-          quickReply('↩ OWNER MENU 👑','menu_1'),
-          quickReply('↩ SOCIAL MENU 🌐','menu_2'),
-          quickReply('↩ AI MENU 🤖','menu_3'),
-          quickReply('↩ GROUP MENU 👥','menu_4'),
-          quickReply('↩ TOOLS MENU 🛠️','menu_5'),
-          quickReply('↩ CHANNEL MENU 📢','menu_7')
-        ],
-        footer:settings.footer
-      });
-    }catch(e){
-      const fallback=body+'\n\n'+settings.footer;
-      if(image) await sock.sendMessage(m.chat,{image:fs.readFileSync(image),caption:fallback},{quoted:m});
-      else await sock.sendMessage(m.chat,{text:fallback},{quoted:m});
-    }
-  }
-};
+*Hey ${pushName}, welcome!*
+
+*┏━ ⌬ 𝗤𝗨𝗜𝗖𝗞 𝗩𝗜𝗘𝗪 ━━━━*
+*┃ Mode › 🌍 ${global.privacyMode || "Public"}*
+*┃ Prefix › [ ${settings.prefix || "."} ]*
+*┃ Commands › ${totalCmd}*
+*┃ Uptime › ${uptime}*
+*┗━━━━━━━━━━━━━❥❥❥*
+
+*┏━「 𝚁𝚎𝙿𝙻𝚈 𝙽𝚄𝙼𝙱𝚎𝚁 ⤵️ 」*
+*┃* 1️⃣ \`OWNER · 16\`
+*┃* 2️⃣ \`DOWNLOAD · 10\`
+*┃* 3️⃣ \`AI · 4\`
+*┃* 4️⃣ \`GROUP · 8\`
+*┃* 5️⃣ \`TOOLS · 7\`
+*┃* 6️⃣ \`EDUCATION · 3\`
+*┃* 7️⃣ \`CHANNEL · 4\`
+*┗━━━━━━━━━━❥❥❥*
+
+👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*
+`
+await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
+}
+}
+function clockString(ms) {
+  let h = Math.floor(ms / 3600000)
+  let m = Math.floor(ms / 60000) % 60
+  let s = Math.floor(ms / 1000) % 60
+  return [h, m, s].map(v => v.toString().padStart(2,0)).join(':')
+}
