@@ -44,6 +44,71 @@ fs.readdirSync(cmdPath).forEach(f=>{
 });
 
 sock.ev.on('creds.update', saveCreds);
+
+sock.ev.on('messages.delete', async (data) => {
+  if (!global.antiDelete) return;
+  for (const key of (data?.keys || [])) {
+    if (!key?.id || key.fromMe) continue;
+    const cached = global.messageCache.get(`${key.remoteJid}:${key.id}`);
+    if (!cached?.message) continue;
+
+    try {
+      const ownerJid = getOwnerJid();
+      const sender = cached.key?.participant || cached.key?.remoteJid || "unknown";
+      const chat = cached.key?.remoteJid || "unknown";
+      const unwrap = (msg) => {
+        if (!msg || typeof msg !== "object") return {};
+        for (const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]) {
+          if (msg[wrapper]?.message) return unwrap(msg[wrapper].message);
+        }
+        return msg;
+      };
+      const original = unwrap(cached.message);
+      const caption = `*🗑️ ANTI-DELETE*
+*From:* @${String(sender).split("@")[0]}
+*Chat:* ${chat}
+
+${settings.footer}`;
+      const text = original.conversation || original.extendedTextMessage?.text;
+
+      if (text) {
+        await sock.sendMessage(ownerJid, {
+          text: `${caption}
+
+*Message:* ${text}`,
+          mentions: [sender]
+        });
+      } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
+        const media = await downloadMediaMessage(
+          cached,
+          "buffer",
+          {},
+          { logger: pino({ level: "silent" }), reuploadRequest: sock.updateMediaMessage }
+        );
+        if (original.imageMessage) {
+          await sock.sendMessage(ownerJid, { image: media, caption, mentions: [sender] });
+        } else if (original.videoMessage) {
+          await sock.sendMessage(ownerJid, { video: media, caption, mentions: [sender] });
+        } else if (original.audioMessage) {
+          await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || "audio/mpeg" });
+        } else if (original.documentMessage) {
+          await sock.sendMessage(ownerJid, {
+            document: media,
+            mimetype: original.documentMessage.mimetype || "application/octet-stream",
+            fileName: original.documentMessage.fileName || "deleted-file",
+            caption
+          });
+        } else if (original.stickerMessage) {
+          await sock.sendMessage(ownerJid, { sticker: media });
+        }
+      }
+    } catch (e) {
+      console.error("ANTI-DELETE ERROR:", e.message);
+    } finally {
+      global.messageCache.delete(`${key.remoteJid}:${key.id}`);
+    }
+  }
+});
 sock.ev.on('connection.update', async (u)=>{
   console.log("CONNECTION UPDATE:", u.connection || "no connection state", u.lastDisconnect?.error?.message || "");
   if(u.qr) qrcode.generate(u.qr,{small:true});
