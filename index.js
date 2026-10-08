@@ -201,12 +201,21 @@ let pushName = m.pushName || "User"
 // ===== ANTI-VIEWONCE: REPLY TO A VIEW-ONCE TO RESTORE IT =====
 const findViewOnce = (msg) => {
   if (!msg || typeof msg !== 'object') return null;
+
+  const mediaTypes = ['imageMessage','videoMessage','audioMessage'];
+
+  // Current WhatsApp can deliver view-once media flat with viewOnce:true.
+  for (const type of mediaTypes) {
+    const media = msg[type];
+    if (media && media.viewOnce === true) return { type, message: msg };
+  }
+
   for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension']) {
     if (msg[wrapper]?.message) {
       const inner = msg[wrapper].message;
       const nested = findViewOnce(inner);
       if (nested) return nested;
-      const type = Object.keys(inner || {}).find(k => ['imageMessage','videoMessage','audioMessage'].includes(k));
+      const type = Object.keys(inner || {}).find(k => mediaTypes.includes(k));
       if (type) return { type, message: inner };
     }
   }
