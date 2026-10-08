@@ -192,14 +192,16 @@ let streamError = null
 try {
   const { Innertube } = await import("youtubei.js")
   const youtube = await Innertube.create()
-  const webStream = await youtube.download(video.url, {
+  const videoId = video.videoId || video.id || String(video.url).split("v=")[1]?.split("&")[0]
+  if (!videoId) throw new Error("YouTube video ID unavailable")
+  const webStream = await youtube.download(videoId, {
     type: "audio",
     quality: "best",
     format: "mp4"
   })
   const nodeStream = Readable.fromWeb(webStream)
-  const writeStream = fs.createWriteStream(filePath.replace(/\\.mp3$/, ".m4a"))
   filePath = filePath.replace(/\\.mp3$/, ".m4a")
+  const writeStream = fs.createWriteStream(filePath)
 
   await new Promise((resolve, reject) => {
     nodeStream.on("error", reject)
