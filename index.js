@@ -25,8 +25,20 @@ global.antibot = global.antibot || {};
 global.botWarnings = global.botWarnings || {};
 global.antiDelete = true;
 global.messageCache = global.messageCache || new Map();
+global.__botStarting = global.__botStarting || false;
+global.__botReconnectTimer = global.__botReconnectTimer || null;
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
 
 async function startBot(){
+if (global.__botStarting) return;
+global.__botStarting = true;
+try {
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
 const sock = makeWASocket({ auth: state, logger: pino({ level: 'info' }) });
 
@@ -101,12 +113,20 @@ sock.ev.on('messages.update', async (updates) => {
     if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === '0' || /REVOKE/i.test(stub)) await handleDeletedMessage(entry.key);
   }
 });
+global.__botStarting = false;
 sock.ev.on('connection.update', async (u)=>{
   console.log("CONNECTION UPDATE:", u.connection || "no connection state", u.lastDisconnect?.error?.message || "");
   if(u.qr) qrcode.generate(u.qr,{small:true});
   if(u.connection==="close"){
-    let r=u.lastDisconnect?.error?.output?.statusCode;
-    if(r!==DisconnectReason.loggedOut) setTimeout(startBot,3000);
+    const err = u.lastDisconnect?.error;
+    const r = err?.output?.statusCode;
+    console.error("CONNECTION CLOSED:", r || "unknown", err?.message || err || "unknown error");
+    if(r !== DisconnectReason.loggedOut && !global.__botReconnectTimer){
+      global.__botReconnectTimer = setTimeout(()=>{
+        global.__botReconnectTimer = null;
+        startBot().catch(e=>console.error("RECONNECT START ERROR:",e));
+      },5000);
+    }
   }
 });
 
@@ -425,5 +445,15 @@ if(commands.has(cmdName)){
 }
 }
 });
+} catch (e) {
+  global.__botStarting = false;
+  console.error("START BOT ERROR:", e);
+  if (!global.__botReconnectTimer) {
+    global.__botReconnectTimer = setTimeout(()=>{
+      global.__botReconnectTimer = null;
+      startBot().catch(err=>console.error("RESTART ERROR:", err));
+    },5000);
+  }
 }
-startBot();
+}
+startBot().catch(e=>console.error("FATAL START ERROR:", e));
