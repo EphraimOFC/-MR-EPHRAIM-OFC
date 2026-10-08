@@ -13,25 +13,21 @@ let chat = m.chat
 let pushName = m.pushName || "User"
 let bodyText = args.join(" ").toLowerCase().trim()
 
-// ===== BUTTON TAP =====
+// BUTTON TAP
 if (["audio","document","doc","voice","vn","ptt"].includes(bodyText)) {
-  // ✅️ STAGE 1: RECOGNISED FORMAT
   try { await sock.sendMessage(chat, { react: { text: "✅️", key: m.key } }) } catch{}
-
   let data = global.songCache[chat]
   if (!data) return sock.sendMessage(chat, { text: `❌ Session expired, search again\n${settings.footer}` }, { quoted: m })
-
-  let type = bodyText === "doc"? "document" : bodyText === "vn" || bodyText === "ptt"? "voice" : bodyText
+  let type = bodyText === "doc"? "document" : (bodyText === "vn" || bodyText === "ptt")? "voice" : bodyText
   return downloadAndSend(sock, m, data, type, settings)
 }
 
-// ===== INITIAL SEARCH =====
+// INITIAL
 try { await sock.sendMessage(chat, { react: { text: "✅️", key: m.key } }) } catch{}
-
 let query = args.join(" ")
 if (!query) {
   try { await sock.sendMessage(chat, { react: { text: "❌️", key: m.key } }) } catch{}
-  return sock.sendMessage(chat, { text: `❌ Usage:.song <song name>\n${settings.footer}` }, { quoted: m })
+  return sock.sendMessage(chat, { text: `❌ Usage:.song <song name>\nEx:.song Calm Down\n\n${settings.footer}` }, { quoted: m })
 }
 
 try {
@@ -42,21 +38,14 @@ try {
     try { await sock.sendMessage(chat, { react: { text: "❌️", key: m.key } }) } catch{}
     return sock.sendMessage(chat, { text: `❌ Not found` }, { quoted: m })
   }
-
   global.songCache[chat] = video
   let fancyName = pushName.toUpperCase()
 
   let txt = `
 *🎧⃝⃘̉̉̉━⋆─⋆──❂*
-*┊ ┊ ┊ ┊ ┊*
-*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
 *┊ ☠︎︎*
 *✧ ${fancyName}𓂃✍︎𝄞*
 *╰────────────────❂*
- *┏━━━━━━━━━━━❥❥❥*
- *┃* \`𝗦𝗢𝗡𝗚 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥\`
- *┗━━━━━━━━━━━❥❥❥*
-
 *📌 Title:* ${video.title}
 *👤 Author:* ${video.author.name}
 *⏱️ Duration:* ${video.timestamp}
@@ -87,14 +76,13 @@ ${settings.footer}
 
 async function downloadAndSend(sock, m, video, type, settings) {
 try {
-  // ⬇️ STAGE 2: DOWNLOADING
   try { await sock.sendMessage(m.chat, { react: { text: "⬇️", key: m.key } }) } catch{}
-  await sock.sendMessage(m.chat, { text: `⏳ *Downloading ${type}...*\n*Title:* ${video.title}\n\n${settings.footer}` }, { quoted: m })
+  await sock.sendMessage(m.chat, { text: `⏳ Downloading *${video.title}* as ${type}...` }, { quoted: m })
 
   let audioUrl = null
   try {
     let api = `https://api.davidcyriltech.my.id/youtube/mp3?url=${encodeURIComponent(video.url)}`
-    let { data } = await axios.get(api, { timeout: 20000 })
+    let { data } = await axios.get(api, { timeout: 25000 })
     audioUrl = data.result?.download_url || data.download_url || data.result?.dl_url || data.url
   } catch(e){}
 
@@ -112,16 +100,20 @@ try {
     await new Promise(res => write.on('finish', res))
   }
 
+  let sizeMB = (fs.statSync(filePath).size / (1024*1024)).toFixed(2)
+  let fileCaption = `${video.title}\nDuration: ${video.timestamp}\nSize: ${sizeMB} MB\n\n${settings.footer}`
+
   if (type === "audio") {
     await sock.sendMessage(m.chat, { audio: fs.readFileSync(filePath), mimetype: 'audio/mpeg', fileName: `${video.title}.mp3` }, { quoted: m })
+    await sock.sendMessage(m.chat, { text: fileCaption }, { quoted: m })
   } else if (type === "document") {
-    await sock.sendMessage(m.chat, { document: fs.readFileSync(filePath), mimetype: 'audio/mpeg', fileName: `${video.title}.mp3` }, { quoted: m })
+    await sock.sendMessage(m.chat, { document: fs.readFileSync(filePath), mimetype: 'audio/mpeg', fileName: `${video.title}.mp3`, caption: fileCaption }, { quoted: m })
   } else {
     await sock.sendMessage(m.chat, { audio: fs.readFileSync(filePath), mimetype: 'audio/mpeg', ptt: true }, { quoted: m })
+    await sock.sendMessage(m.chat, { text: fileCaption }, { quoted: m })
   }
 
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-  // ✅️ STAGE 3: SENT
   try { await sock.sendMessage(m.chat, { react: { text: "✅️", key: m.key } }) } catch{}
 
 } catch (e) {
@@ -129,4 +121,4 @@ try {
   try { await sock.sendMessage(m.chat, { react: { text: "❌️", key: m.key } }) } catch{}
   sock.sendMessage(m.chat, { text: `❌ Download failed\n${settings.footer}` }, { quoted: m })
 }
-      }
+                                                                    }
