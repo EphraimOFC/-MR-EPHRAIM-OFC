@@ -99,21 +99,26 @@ try {
 
   const fancyName = pushName.toUpperCase()
 
-  const txt = `
-
-*🎧⃝⃘━⋆─⋆──❂*
-*┊ ☠︎︎*
-*✧ ${fancyName}𓂃✍︎𝄞*
-*╰────────────────❂*
-
-*📌 Title:* ${video.title}
-*👤 Author:* ${video.author?.name || "Unknown"}
-*⏱️ Duration:* ${video.timestamp || "Unknown"}
-
-*Choose Download Format ⤵️*
-
-${settings.footer}
-`
+  const txt = `*🎧⃝⃘̉̉̉━⋆─⋆──❂* 
+*┊ ┊ ┊ ┊ ┊* 
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀* 
+*┊ ☠︎︎* 
+*✧ ${fancyName}𓂃✍︎𝄞* 
+*╰────────────────❂* 
+ *┏━━━━━━━━━━━❥❥❥* 
+ *┃* \`𝗦𝗢𝗡𝗚 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥\` 
+ *┗━━━━━━━━━━━❥❥❥* 
+ 
+*📌 Title :-* ${video.title} 
+*👤 Author :-* ${video.author?.name || "Unknown"} 
+*👁️ Views :-* ${video.views || "Unknown"} 
+*⏳ Ago :-* ${video.ago || "Unknown"} 
+*⏱️ Duration :-* ${video.timestamp || "Unknown"} 
+ 
+*0:00 ⊲⊲ ▐ ▌ ⊳⊳ ${video.timestamp || "0:00"}* 
+*━━━━━⬤───────* 
+ 
+*Choose Download Format ⤵️*`;
 
   await sendInteractive(sock, m, {
     title: "E TECH OFC • SONG",
@@ -122,7 +127,8 @@ ${settings.footer}
     footer: settings.footer,
     buttons: [
       quickReply("🎧 AUDIO", "etech_song_audio"),
-      quickReply("📄 DOCUMENT", "etech_song_document")
+      quickReply("📄 DOCUMENT", "etech_song_document"),
+      quickReply("🎙️ VOICE", "etech_song_voice")
     ]
   })
 
