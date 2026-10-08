@@ -1,3 +1,4 @@
+require('dotenv').config()
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
