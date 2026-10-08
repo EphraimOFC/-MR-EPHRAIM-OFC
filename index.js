@@ -1,5 +1,5 @@
 require('dotenv').config()
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, WAMessageStubType } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
@@ -135,7 +135,7 @@ sock.ev.on('messages.update', async (updates) => {
     const update = entry?.update || {};
     const protocolType = update?.message?.protocolMessage?.type;
     const stub = String(update?.messageStubType || "");
-    if (protocolType === 0 || stub === "0" || /REVOKE/i.test(stub)) {
+    if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === "0" || /REVOKE/i.test(stub)) {
       await handleDeletedMessage(entry.key);
     }
   }
