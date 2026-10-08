@@ -116,7 +116,7 @@ try {
 *0:00 ⊲⊲ ▐ ▌ ⊳⊳ ${video.timestamp || "0:00"}* 
 *━━━━━⬤───────* 
  
-*Choose Download Format ⤵️*`;
+`;
 
   await sendInteractive(sock, m, {
     title: "E TECH OFC • SONG",
