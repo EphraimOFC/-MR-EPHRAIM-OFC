@@ -50,7 +50,7 @@ const handledDeleteKeys = new Set();
 
 async function handleDeletedMessage(key) {
   if (!global.antiDelete || !key?.id || key.fromMe) return;
-  const cacheKey = \`\${key.remoteJid}:\${key.id}\`;
+  const cacheKey = `${key.remoteJid}:${key.id}`;
   if (handledDeleteKeys.has(cacheKey)) return;
   handledDeleteKeys.add(cacheKey);
   setTimeout(() => handledDeleteKeys.delete(cacheKey), 60000);
@@ -64,13 +64,13 @@ async function handleDeletedMessage(key) {
     const senderName = String(cached.pushName || "Unknown").replace(/[\r\n]/g, " ").trim() || "Unknown";
     const chat = cached.key?.remoteJid || "unknown";
     const deleteDesign =
-\`┏━━━━━━━━━━━━━━━━━
+`┏━━━━━━━━━━━━━━━━━
 ┃ 🗑️ *MESSAGE DELETED*
 ┗━━━━━━━━━━━━━━━━━
-*🤦‍♂️ Sender :* _\${senderName}_
-*🌬️ Delete By :* _\${senderName}_
+*🤦‍♂️ Sender :* _${senderName}_
+*🌬️ Delete By :* _${senderName}_
 ━━━━━━━━━━━━━━━━━━
-\${settings.footer}\`;
+${settings.footer}`;
 
     const unwrap = (msg) => {
       if (!msg || typeof msg !== "object") return {};
@@ -85,9 +85,9 @@ async function handleDeletedMessage(key) {
 
     if (originalText) {
       await sock.sendMessage(ownerJid, {
-        text: \`\${deleteDesign}
+        text: `${deleteDesign}
 
-*Message :* \${originalText}\`,
+*Message :* ${originalText}`,
         mentions: sender.includes("@") ? [sender] : []
       });
     } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
@@ -253,7 +253,7 @@ const getReplyContext = (msg) =>
 try {
   const detectedViewOnce = findViewOnce(m.message);
   if (detectedViewOnce && detectedViewOnce.message) {
-    global.viewOnceCache.set(\`\${chat}:\${m.key.id}\`, m);
+    global.viewOnceCache.set(`${chat}:${m.key.id}`, m);
     if (global.viewOnceCache.size > 200) {
       const first = global.viewOnceCache.keys().next().value;
       if (first) global.viewOnceCache.delete(first);
@@ -263,10 +263,10 @@ try {
   if (global.antiviewonce) {
     const ctx = getReplyContext(m.message);
     const stanzaId = ctx?.stanzaId;
-    let target = stanzaId ? global.viewOnceCache.get(\`\${chat}:\${stanzaId}\`) : null;
+    let target = stanzaId ? global.viewOnceCache.get(`${chat}:${stanzaId}`) : null;
 
     if (!target && stanzaId) {
-      const cached = global.messageCache.get(\`\${chat}:\${stanzaId}\`);
+      const cached = global.messageCache.get(`${chat}:${stanzaId}`);
       if (cached && findViewOnce(cached.message)) target = cached;
     }
 
@@ -274,7 +274,7 @@ try {
       target = {
         key: {
           remoteJid: chat,
-          id: stanzaId || \`quoted-\${Date.now()}\`,
+          id: stanzaId || `quoted-${Date.now()}`,
           fromMe: false,
           participant: ctx.participant || sender
         },
@@ -296,12 +296,12 @@ try {
         );
 
         const caption =
-\`┏━━━━━━━━━━━━━━
+`┏━━━━━━━━━━━━━━
 ┃ 👁️ *ANTI VIEW ONE*
 ┗━━━━━━━━━━━━━━
 *Note :-* _Do not use this service to damage the image of any person._
 ━━━━━━━━━━━━━━━━━━━━
-\${settings.footer}\`;
+${settings.footer}`;
 
         if (view.type === "imageMessage") {
           await sock.sendMessage(chat, { image: buffer, caption });
@@ -316,7 +316,7 @@ try {
           await sock.sendMessage(chat, { text: caption });
         }
 
-        if (stanzaId) global.viewOnceCache.delete(\`\${chat}:\${stanzaId}\`);
+        if (stanzaId) global.viewOnceCache.delete(`${chat}:${stanzaId}`);
       }
     }
   }
@@ -334,7 +334,7 @@ try {
     global.botWarnings[sender] = warn;
 
     const warnText = `*🛡️⃝⃘̉̉̉━⋆─❂*
-*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
+*┃* `𝗔𝗡𝗧𝗜 𝗕𝗢𝗧`
 *┗━━━━━━━━━━❂*
 
 *👤 User:* @${senderNumber}
