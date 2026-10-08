@@ -8,7 +8,7 @@ global.__ytDownloader = global.__ytDownloader || null
 
 async function getYoutube() {
   if (!global.__ytDownloader) {
-    const { Innertube, UniversalCache } = require('youtubei.js')
+    const { Innertube, UniversalCache } = await import('youtubei.js')
     global.__ytDownloader = await Innertube.create({
       cache: new UniversalCache(false),
       generate_session_locally: true
@@ -104,7 +104,7 @@ async function downloadYoutubeAudio(video, outputPath) {
     client: "WEB"
   })
 
-  const { Utils } = require('youtubei.js')
+  const { Utils } = await import('youtubei.js')
   const write = fs.createWriteStream(outputPath)
 
   try {
