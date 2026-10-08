@@ -59,23 +59,28 @@ fs.readdirSync(cmdPath).forEach(f=>{
 sock.ev.on('creds.update', saveCreds);
 
 const handledDeleteKeys = new Set();
-async function handleDeletedMessage(key) {
-  if (!global.antiDelete || !key?.id || key.fromMe) return;
+async function handleDeletedMessage(key, deletedByKey = null) {
+  if (!global.antiDelete || !key?.id) return;
   const cacheKey = `${key.remoteJid}:${key.id}`;
   if (handledDeleteKeys.has(cacheKey)) return;
   handledDeleteKeys.add(cacheKey);
   setTimeout(() => handledDeleteKeys.delete(cacheKey), 60000);
   const cached = global.messageCache.get(cacheKey);
-  if (!cached?.message) return;
+  if (!cached?.message) {
+    console.log("ANTI-DELETE: original message not found in cache:", cacheKey);
+    return;
+  }
   try {
     const ownerJid = getOwnerJid();
     const sender = cached.key?.participant || cached.key?.remoteJid || 'unknown';
+    const deletedBy = deletedByKey?.participant || deletedByKey?.remoteJid || 'unknown';
     const senderName = String(cached.pushName || 'Unknown').replace(/[\r\n]/g, ' ').trim() || 'Unknown';
+    const deletedByName = String(deletedByKey?.pushName || (deletedBy === sender ? senderName : 'Unknown')).replace(/[\r\n]/g, ' ').trim() || 'Unknown';
     const deleteDesign = `┏━━━━━━━━━━━━━━━━━
 ┃ 🗑️ *MESSAGE DELETED*
 ┗━━━━━━━━━━━━━━━━━
 *🤦‍♂️ Sender :* _${senderName}_
-*🌬️ Delete By :* _${senderName}_
+*🌬️ Delete By :* _${deletedByName}_
 ━━━━━━━━━━━━━━━━━━
 ${settings.footer}`;
     const unwrap = (msg) => {
@@ -102,7 +107,7 @@ ${settings.footer}`;
 }
 
 sock.ev.on('messages.delete', async (data) => {
-  for (const key of (data?.keys || [])) await handleDeletedMessage(key);
+  for (const key of (data?.keys || [])) await handleDeletedMessage(key, null);
 });
 
 sock.ev.on('messages.update', async (updates) => {
@@ -110,7 +115,7 @@ sock.ev.on('messages.update', async (updates) => {
     const update = entry?.update || {};
     const protocolType = update?.message?.protocolMessage?.type;
     const stub = String(update?.messageStubType || '');
-    if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === '0' || /REVOKE/i.test(stub)) await handleDeletedMessage(entry.key);
+    if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === '0' || /REVOKE/i.test(stub)) await handleDeletedMessage(entry.key, entry.key);
   }
 });
 global.__botStarting = false;
@@ -224,25 +229,39 @@ const findViewOnce = (msg) => {
   if (!msg || typeof msg !== 'object') return null;
 
   const mediaTypes = ['imageMessage','videoMessage','audioMessage'];
-
-  // Current WhatsApp can deliver view-once media flat with viewOnce:true.
   for (const type of mediaTypes) {
     const media = msg[type];
-    if (media && media.viewOnce === true) return { type, message: msg };
+    if (media && (media.viewOnce === true || media.viewOnceV2 === true || media.isViewOnce === true)) {
+      return { type, message: msg };
+    }
   }
 
-  for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension']) {
-    if (msg[wrapper]?.message) {
-      const inner = msg[wrapper].message;
-      const nested = findViewOnce(inner);
-      if (nested) return nested;
-      const type = Object.keys(inner || {}).find(k => mediaTypes.includes(k));
-      if (type) return { type, message: inner };
-    }
+  for (const wrapper of [
+    'ephemeralMessage',
+    'viewOnceMessage',
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'documentWithCaptionMessage'
+  ]) {
+    const inner = msg[wrapper]?.message;
+    if (!inner) continue;
+
+    const nested = findViewOnce(inner);
+    if (nested) return nested;
+
+    const type = Object.keys(inner).find(k => mediaTypes.includes(k));
+    if (type) return { type, message: inner };
+  }
+
+  return null;
+};
+const getReplyContext = (msg) => {
+  if (!msg || typeof msg !== 'object') return null;
+  for (const type of ['extendedTextMessage','imageMessage','videoMessage','audioMessage','documentMessage','buttonsResponseMessage','templateButtonReplyMessage','listResponseMessage','interactiveResponseMessage']) {
+    if (msg[type]?.contextInfo) return msg[type].contextInfo;
   }
   return null;
 };
-const getReplyContext = (msg) => msg?.extendedTextMessage?.contextInfo || msg?.buttonsResponseMessage?.contextInfo || msg?.templateButtonReplyMessage?.contextInfo || msg?.listResponseMessage?.contextInfo || msg?.interactiveResponseMessage?.contextInfo || null;
 try {
   const detectedViewOnce = findViewOnce(m.message);
   if (detectedViewOnce?.message) { global.viewOnceCache.set(`${chat}:${m.key.id}`, m); if (global.viewOnceCache.size > 200) { const first = global.viewOnceCache.keys().next().value; if (first) global.viewOnceCache.delete(first); } }
@@ -255,8 +274,18 @@ try {
     if (target?.message) {
       const view = findViewOnce(target.message);
       if (view?.message && ['imageMessage','videoMessage','audioMessage'].includes(view.type)) {
-        const inner = { [view.type]: view.message[view.type] || view.message };
-        const buffer = await downloadMediaMessage({ ...target, message: inner }, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
+        const mediaMessage = view.message[view.type] || view.message;
+        const inner = { [view.type]: mediaMessage };
+        const targetForDownload = {
+          ...target,
+          message: inner,
+          key: {
+            ...(target.key || {}),
+            remoteJid: target.key?.remoteJid || chat,
+            id: target.key?.id || stanzaId || m.key.id
+          }
+        };
+        const buffer = await downloadMediaMessage(targetForDownload, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
         const caption = `┏━━━━━━━━━━━━━━
 ┃ 👁️ *ANTI VIEW ONE*
 ┗━━━━━━━━━━━━━━
