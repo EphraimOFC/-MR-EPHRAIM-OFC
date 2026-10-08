@@ -97,7 +97,7 @@ try {
   // Save search result for the button selection
   global.songCache[chat] = video
 
-  const fancyName = pushName.toUpperCase()
+  const fancyName = pushName
 
   const txt = `*🎧⃝⃘̉̉̉━⋆─⋆──❂* 
 *┊ ┊ ┊ ┊ ┊* 
