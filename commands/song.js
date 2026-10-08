@@ -1,5 +1,6 @@
 const yts = require('yt-search')
 const ytdl = require('@distube/ytdl-core')
+const { Readable } = require('stream')
 const fs = require('fs')
 const path = require('path')
 const { sendInteractive, quickReply } = require('../ui')
@@ -182,23 +183,58 @@ filePath = path.join(
 
 /*
  * PRIMARY DOWNLOADER
- * @distube/ytdl-core
+ * YouTube.js InnerTube first; ytdl-core is only a fallback.
+ * This avoids relying on the direct YouTube request that is returning HTTP 429.
  */
-const stream = ytdl(video.url, {
-  filter: "audioonly",
-  quality: "highestaudio",
-  highWaterMark: 1 << 25
-})
+let downloadFormat = "m4a"
+let streamError = null
 
-const writeStream = fs.createWriteStream(filePath)
+try {
+  const { Innertube } = await import("youtubei.js")
+  const youtube = await Innertube.create()
+  const webStream = await youtube.download(video.url, {
+    type: "audio",
+    quality: "best",
+    format: "mp4"
+  })
+  const nodeStream = Readable.fromWeb(webStream)
+  const writeStream = fs.createWriteStream(filePath.replace(/\\.mp3$/, ".m4a"))
+  filePath = filePath.replace(/\\.mp3$/, ".m4a")
 
-await new Promise((resolve, reject) => {
-  stream.on("error", reject)
-  writeStream.on("error", reject)
-  writeStream.on("finish", resolve)
+  await new Promise((resolve, reject) => {
+    nodeStream.on("error", reject)
+    writeStream.on("error", reject)
+    writeStream.on("finish", resolve)
+    nodeStream.pipe(writeStream)
+  })
+} catch (e) {
+  streamError = e
+  console.log("YOUTUBE.JS DOWNLOAD FAILED, TRYING YTDL:", e.message)
 
-  stream.pipe(writeStream)
-})
+  const stream = ytdl(video.url, {
+    filter: "audioonly",
+    quality: "highestaudio",
+    highWaterMark: 1 << 25,
+    requestOptions: {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0 Safari/537.36"
+      }
+    }
+  })
+
+  const writeStream = fs.createWriteStream(filePath)
+
+  await new Promise((resolve, reject) => {
+    stream.on("error", reject)
+    writeStream.on("error", reject)
+    writeStream.on("finish", resolve)
+    stream.pipe(writeStream)
+  })
+}
+
+if (streamError && !fs.existsSync(filePath)) {
+  throw streamError
+}
 
 if (!fs.existsSync(filePath)) {
   throw new Error("Audio file was not created")
@@ -216,7 +252,7 @@ const safeTitle = String(video.title || "song")
   .replace(/[\\/:*?"<>|]/g, "")
   .slice(0, 100)
 
-const fileName = `${safeTitle}.mp3`
+const fileName = `${safeTitle}.${downloadFormat}`
 
 const fileCaption =
   `*🎵 ${video.title}*\n` +
@@ -233,7 +269,7 @@ if (type === "audio") {
     chat,
     {
       audio: audioBuffer,
-      mimetype: "audio/mpeg",
+      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
       fileName
     },
     { quoted: m }
@@ -252,7 +288,7 @@ else if (type === "document") {
     chat,
     {
       document: audioBuffer,
-      mimetype: "audio/mpeg",
+      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
       fileName,
       caption: fileCaption
     },
@@ -266,7 +302,7 @@ else if (type === "voice") {
     chat,
     {
       audio: audioBuffer,
-      mimetype: "audio/mpeg",
+      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
       ptt: true
     },
     { quoted: m }
