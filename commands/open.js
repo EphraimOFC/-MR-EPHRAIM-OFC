@@ -1,19 +1,22 @@
 module.exports = {
-  name: "open",
-  execute: async (sock, m, args, settings) => {
-    if (!m.chat.endsWith("@g.us")) return m.reply("❌ This command is for groups only!");
+name: "open",
+async execute(sock, m, args, settings) {
+  let chat = m.chat
+  if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: `❌ Group only\n${settings.footer}` }, { quoted: m })
 
-    const groupMetadata = await sock.groupMetadata(m.chat);
-    const participants = groupMetadata.participants;
-    const isBotAdmin = participants.find(p => p.id === sock.user.id.split(":")[0]+"@s.whatsapp.net")?.admin;
-    const sender = m.key.participant || m.chat;
-    const isSenderAdmin = participants.find(p => p.id === sender)?.admin;
-    const isOwner = sender === "2347072956206@s.whatsapp.net";
+  try{
+    await sock.groupSettingUpdate(chat, 'not_announcement')
+    let txt = `*👁️⃝⃘̉̉̉━⋆─⋆──❂*
+*┃* \`𝗚𝗥𝗢𝗨𝗣 𝗦𝗧𝗔𝗧𝗨𝗦\`
+*┗━━━━━━━━━━━━━❂*
 
-    if (!isBotAdmin) return m.reply("❌ Bot must be admin!");
-    if (!isSenderAdmin &&!isOwner) return m.reply("❌ Only group admin can use this!");
+*✅ Status:* OPENED (everyone can message)
+*👤 Action by:* ${m.pushName || "Admin"}
 
-    await sock.groupSettingUpdate(m.chat, 'not_announced');
-    await sock.sendMessage(m.chat, { text: `✅ *Group Opened*\n\nEveryone can now send messages.\n\n> ${settings.footer}` }, { quoted: m });
+${settings.footer}`
+    await sock.sendMessage(chat, { text: txt }, { quoted: m })
+  }catch(e){
+    await sock.sendMessage(chat, { text: `❌ Bot not admin\n${settings.footer}` }, { quoted: m })
   }
-};
+}
+}
