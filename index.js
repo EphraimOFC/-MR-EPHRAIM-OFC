@@ -157,7 +157,8 @@ if(!m.message) return;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
 let sender=m.key.participant||chat;
-let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
+let senderAlt=m.key.participantAlt||m.key.remoteJidAlt||"";
+let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRealOwner(chat)||global.sudo?.includes(sender)||global.sudo?.includes(senderAlt);
 if(m.key.fromMe && !isOwner) return;
 m.chat=chat;
 
@@ -176,6 +177,16 @@ const unwrapMessage = (msg) => {
 };
 
 const msg = unwrapMessage(m.message);
+
+// WhatsApp/Baileys can deliver deletes as protocolMessage inside messages.upsert.
+try {
+  const protocol = msg?.protocolMessage;
+  if (protocol?.type === 0 && protocol?.key?.id) {
+    await handleDeletedMessage(protocol.key, m.key);
+    continue;
+  }
+} catch (e) { console.error("ANTI-DELETE PROTOCOL ERROR:", e.message); }
+
 let body=
   msg.conversation ||
   msg.extendedTextMessage?.text ||
