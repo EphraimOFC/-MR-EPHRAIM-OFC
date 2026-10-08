@@ -97,7 +97,7 @@ if(!m.message) return;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
 let sender=m.key.participant||chat;
-let isOwner=isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
+let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
 if(m.key.fromMe && !isOwner) return;
 m.chat=chat;
 
