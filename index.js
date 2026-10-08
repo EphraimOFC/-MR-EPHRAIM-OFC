@@ -16,6 +16,7 @@ global.antiviewonce = true;
 global.creact = true;
 global.aliveReply = global.aliveReply || {};
 global.settingsReply = global.settingsReply || {};
+global.menuReply = global.menuReply || {};
 global.songCache = global.songCache || {};
 global.videoCache = global.videoCache || {};
 global.antibot = global.antibot || {};
@@ -33,7 +34,8 @@ fs.readdirSync(cmdPath).forEach(f=>{
       delete require.cache[require.resolve(`./commands/${f}`)];
       let c=require(`./commands/${f}`);
       commands.set(c.name,c);
-      if(c.alias) c.alias.forEach(a=>commands.set(a,c));
+      if(c.alias) c.alias.forEach(a=>commands.set(String(a).toLowerCase(),c));
+      if(c.aliases) c.aliases.forEach(a=>commands.set(String(a).toLowerCase(),c));
     }catch(e){ console.error(`FAILED COMMAND LOAD ${f}:`, e.message) }
   }
 });
@@ -48,15 +50,64 @@ sock.ev.on('connection.update', async (u)=>{
   }
 });
 
+function extractInteractiveId(message){
+  if(!message || typeof message !== "object") return "";
+  const direct =
+    message.buttonsResponseMessage?.selectedButtonId ||
+    message.templateButtonReplyMessage?.selectedId ||
+    message.listResponseMessage?.singleSelectReply?.selectedRowId;
+  if(direct) return String(direct);
+
+  const native = message.interactiveResponseMessage?.nativeFlowResponseMessage;
+  if(native){
+    try{
+      const raw = native.paramsJson;
+      const json = typeof raw === "string"
+        ? raw
+        : Buffer.isBuffer(raw)
+          ? raw.toString("utf8")
+          : raw && typeof raw === "object"
+            ? JSON.stringify(raw)
+            : String(raw || "");
+      const parsed = JSON.parse(json || "{}");
+      const id = parsed.id || parsed.selectedId || parsed.selected_id ||
+        parsed.button_id || parsed.buttonId || parsed.display_text || parsed.displayText;
+      if(id) return String(id);
+    }catch{}
+  }
+
+  for(const wrapper of [
+    "ephemeralMessage",
+    "viewOnceMessage",
+    "viewOnceMessageV2",
+    "viewOnceMessageV2Extension",
+    "documentWithCaptionMessage"
+  ]){
+    const nested=message[wrapper]?.message;
+    const id=extractInteractiveId(nested);
+    if(id) return id;
+  }
+  return "";
+}
+
 sock.ev.on('messages.upsert', async ({messages})=>{
 let m=messages[0];
-if(!m.message||m.key.fromMe) return;
+if(!m.message) return;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
-m.chat=chat;
-let body=m.message.conversation||m.message.extendedTextMessage?.text||m.message.buttonsResponseMessage?.selectedButtonId||m.message.listResponseMessage?.singleSelectReply?.selectedRowId||"";
 let sender=m.key.participant||chat;
-let isOwner=isRealOwner(sender)||global.sudo?.includes(sender);
+let isOwner=isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
+if(m.key.fromMe && !isOwner) return;
+m.chat=chat;
+let body=
+  m.message.conversation ||
+  m.message.extendedTextMessage?.text ||
+  m.message.buttonsResponseMessage?.selectedButtonId ||
+  m.message.templateButtonReplyMessage?.selectedId ||
+  m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+  extractInteractiveId(m.message) ||
+  "";
+
 let pushName = m.pushName || "User"
 
 // ===== AUTO ANTI-VIEWONCE (WORKS WITHOUT COMMAND) =====
@@ -143,13 +194,68 @@ if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
   }
 }
 
+// ===== MAIN MENU REPLY 1-7 HANDLER =====
+if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
+  const menuCmds = {
+    "1": "ownermenu",
+    "2": "dlmenu",
+    "3": "aimenu",
+    "4": "gmenu",
+    "5": "toolsmenu",
+    "6": "edumenu",
+    "7": "channelmenu"
+  };
+  const selected = menuCmds[cleanBody];
+  delete global.menuReply[chat];
+
+  if(cleanBody === "1" && !isOwner){
+    return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m });
+  }
+
+  const sub = commands.get(selected);
+  if(!sub){
+    return sock.sendMessage(chat, { text: `❌ Submenu unavailable: ${selected}\n${settings.footer}` }, { quoted: m });
+  }
+
+  try{
+    m.pushName = pushName;
+    return await sub.execute(sock,m,[],settings);
+  }catch(e){
+    console.error(`SUBMENU ERROR ${selected}:`,e);
+    return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m });
+  }
+}
+
+// ===== SONG NATIVE BUTTON REPLIES =====
+if(body.startsWith("etech_song_") && commands.has("song")){
+  const action = body.toLowerCase();
+  if(action === "etech_song_audio" || action === "etech_song_document"){
+    try{
+      m.pushName = pushName;
+      return await commands.get("song").execute(sock,m,[action.replace("etech_song_","")],settings);
+    }catch(e){
+      console.error("SONG BUTTON ERROR:",e);
+      return sock.sendMessage(chat, { text: `❌ Song button error: ${e.message}\n${settings.footer}` }, { quoted: m });
+    }
+  }
+}
+if(/^(AUDIO|DOCUMENT)$/i.test(body) && commands.has("song")){
+  try{
+    m.pushName = pushName;
+    return await commands.get("song").execute(sock,m,[body.toLowerCase()],settings);
+  }catch(e){
+    console.error("SONG BUTTON ERROR:",e);
+    return sock.sendMessage(chat, { text: `❌ Song button error: ${e.message}\n${settings.footer}` }, { quoted: m });
+  }
+}
+
 // ===== SETTINGS REPLY 1-7 HANDLER =====
 if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   body = `?settings ${cleanBody}`
 }
 
 // ===== DUAL PREFIX =====
-const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact"]
+const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open"]
 const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️" }
 const stagedCmds = ["song","play","music","tiktok","fb","video","insta"]
 
@@ -177,7 +283,11 @@ if(commands.has(cmdName)){
   try{
     m.pushName = pushName
     await commands.get(cmdName).execute(sock,m,args,settings)
-  }catch(e){ console.log(e) }
+    if(cmdName==="menu"){
+      global.menuReply[chat]=true
+      setTimeout(()=>{ delete global.menuReply[chat] },120000)
+    }
+  }catch(e){ console.error(`COMMAND ERROR ${cmdName}:`,e) }
 }
 });
 }
