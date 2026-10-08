@@ -1,16 +1,44 @@
 module.exports = {
   name: "antiviewonce",
   execute: async (sock, m, args, settings) => {
-    if(!global.antiviewonce) global.antiviewonce = true;
-    const text = args[0]?.toLowerCase();
-    if (text === "on") {
+    if (typeof global.antiviewonce !== "boolean") global.antiviewonce = true;
+    const mode = args[0]?.toLowerCase();
+
+    if (mode === "on") {
       global.antiviewonce = true;
-      await sock.sendMessage(m.chat, { text: "✅ *Anti-ViewOnce ON*\nBot go open Photo, Video, Voice Note - ALL ViewOnce" }, { quoted: m });
-    } else if (text === "off") {
-      global.antiviewonce = false;
-      await sock.sendMessage(m.chat, { text: "❌ *Anti-ViewOnce OFF*" }, { quoted: m });
-    } else {
-      await sock.sendMessage(m.chat, { text: `*Anti-ViewOnce:* ${global.antiviewonce? "ON ✅" : "OFF ❌"}\n\nUse:\n.antiviewonce on\n.antiviewonce off\n\n> ${settings.footer}` }, { quoted: m });
+      return sock.sendMessage(m.chat, {
+        text: `┏━━━━━━━━━━━━━━
+┃ 👁️ *ANTI VIEW ONE*
+┗━━━━━━━━━━━━━━
+*Status :-* ON ✅
+
+*Note :-* _Reply to a View Once image, video or voice note with anything and I will restore it here._
+━━━━━━━━━━━━━━━━━━━━
+${settings.footer}`
+      }, { quoted: m });
     }
+
+    if (mode === "off") {
+      global.antiviewonce = false;
+      return sock.sendMessage(m.chat, {
+        text: `┏━━━━━━━━━━━━━━
+┃ 👁️ *ANTI VIEW ONE*
+┗━━━━━━━━━━━━━━
+*Status :-* OFF ❌
+
+${settings.footer}`
+      }, { quoted: m });
+    }
+
+    return sock.sendMessage(m.chat, {
+      text: `┏━━━━━━━━━━━━━━
+┃ 👁️ *ANTI VIEW ONE*
+┗━━━━━━━━━━━━━━
+*Status :-* ${global.antiviewonce ? "ON ✅" : "OFF ❌"}
+
+*Note :-* _Reply to a View Once image, video or voice note with anything and I will restore it here._
+━━━━━━━━━━━━━━━━━━━━
+${settings.footer}`
+    }, { quoted: m });
   }
 };
