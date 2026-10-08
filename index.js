@@ -15,6 +15,7 @@ global.anticall = false;
 global.antiviewonce = true;
 global.creact = true;
 global.aliveReply = global.aliveReply || {};
+global.settingsReply = global.settingsReply || {};
 global.songCache = global.songCache || {};
 global.videoCache = global.videoCache || {};
 
@@ -71,11 +72,9 @@ if(view && global.antiviewonce){
 let cleanBody = body.trim().toLowerCase()
 if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
   delete global.aliveReply[chat]
-  if(cleanBody==="1"){
-    body = ".menu"
-  } else if(cleanBody==="2"){
-    body = ".ping"
-  } else if(cleanBody==="3"){
+  if(cleanBody==="1"){ body = ".menu" }
+  else if(cleanBody==="2"){ body = ".ping" }
+  else if(cleanBody==="3"){
     if(!isOwner) return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m })
     return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n\n${settings.footer}` }, { quoted: m })
   } else if(cleanBody==="4"){
@@ -85,7 +84,11 @@ if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
     return sock.sendMessage(chat, { text: `*🤖 BOT INFO*\n\n*Name:* E TECH OFC\n*Owner:* Mr Ephraim Ofc\n*Commands:* ${commands.size}\n*Uptime:* ${uptime}\n*Prefix:* ${settings.prefix}\n\n${settings.footer}` }, { quoted: m })
   }
 }
-// ===== END ALIVE HANDLER =====
+
+// ===== SETTINGS REPLY 1-7 HANDLER =====
+if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
+  body = `?settings ${cleanBody}`
+}
 
 // ===== DUAL PREFIX =====
 const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact"]
@@ -102,6 +105,9 @@ if(usedPrefix==="?" &&!isOwner) return
 let args=body.slice(usedPrefix.length).trim().split(/ +/)
 let cmdName=args.shift().toLowerCase()
 if(!cmdName) return
+
+// SETTINGS MUST BE? ONLY - BLOCK.settings
+if((cmdName==="settings" || cmdName==="setting") && usedPrefix!== "?") return
 
 if(ownerOnlyCmds.includes(cmdName) && usedPrefix==="." &&!isOwner) return
 
