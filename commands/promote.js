@@ -10,6 +10,21 @@ async execute(sock, m, args, settings) {
   if(users.length===0) return sock.sendMessage(chat, { text: `*Usage:* ?promote @user or reply\n${settings.footer}` }, { quoted: m })
 
   try{
+    const metadata = await sock.groupMetadata(chat)
+    const botId = sock.user?.id?.split(":")[0] + "@s.whatsapp.net"
+    const botAlt = sock.user?.lid || sock.user?.id
+    const botParticipant = metadata.participants?.find(x =>
+      x.id === botId ||
+      x.id === botAlt ||
+      x.jid === botId ||
+      x.jid === botAlt ||
+      x.lid === botAlt
+    )
+
+    if(!botParticipant?.admin){
+      return sock.sendMessage(chat, { text: `❌ I must be a group admin to promote members.\n\n${settings.footer}` }, { quoted: m })
+    }
+
     await sock.groupParticipantsUpdate(chat, users, "promote")
     let txt = `*🤍⃝⃘̉̉̉━⋆─⋆──❂*
 *┃* \`𝗣𝗥𝗢𝗠𝗢𝗧𝗘 𝗥𝗘𝗣𝗢𝗥𝗧\`
@@ -20,7 +35,8 @@ async execute(sock, m, args, settings) {
 ${settings.footer}`
     await sock.sendMessage(chat, { text: txt }, { quoted: m })
   }catch(e){
-    await sock.sendMessage(chat, { text: `❌ Failed - Bot must be admin\n${settings.footer}` }, { quoted: m })
+    console.error("PROMOTE ERROR:", e)
+    await sock.sendMessage(chat, { text: `❌ Promote failed: ${e.message}\n${settings.footer}` }, { quoted: m })
   }
 }
 }
