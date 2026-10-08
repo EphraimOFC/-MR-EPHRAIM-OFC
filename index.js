@@ -47,100 +47,60 @@ fs.readdirSync(cmdPath).forEach(f=>{
 sock.ev.on('creds.update', saveCreds);
 
 const handledDeleteKeys = new Set();
-
 async function handleDeletedMessage(key) {
   if (!global.antiDelete || !key?.id || key.fromMe) return;
   const cacheKey = `${key.remoteJid}:${key.id}`;
   if (handledDeleteKeys.has(cacheKey)) return;
   handledDeleteKeys.add(cacheKey);
   setTimeout(() => handledDeleteKeys.delete(cacheKey), 60000);
-
   const cached = global.messageCache.get(cacheKey);
   if (!cached?.message) return;
-
   try {
     const ownerJid = getOwnerJid();
-    const sender = cached.key?.participant || cached.key?.remoteJid || "unknown";
-    const senderName = String(cached.pushName || "Unknown").replace(/[\r\n]/g, " ").trim() || "Unknown";
-    const chat = cached.key?.remoteJid || "unknown";
-    const deleteDesign =
-`┏━━━━━━━━━━━━━━━━━
+    const sender = cached.key?.participant || cached.key?.remoteJid || 'unknown';
+    const senderName = String(cached.pushName || 'Unknown').replace(/[\r\n]/g, ' ').trim() || 'Unknown';
+    const deleteDesign = `┏━━━━━━━━━━━━━━━━━
 ┃ 🗑️ *MESSAGE DELETED*
 ┗━━━━━━━━━━━━━━━━━
 *🤦‍♂️ Sender :* _${senderName}_
 *🌬️ Delete By :* _${senderName}_
 ━━━━━━━━━━━━━━━━━━
 ${settings.footer}`;
-
     const unwrap = (msg) => {
-      if (!msg || typeof msg !== "object") return {};
-      for (const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]) {
+      if (!msg || typeof msg !== 'object') return {};
+      for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']) {
         if (msg[wrapper]?.message) return unwrap(msg[wrapper].message);
       }
       return msg;
     };
-
     const original = unwrap(cached.message);
     const originalText = original.conversation || original.extendedTextMessage?.text;
-
     if (originalText) {
-      await sock.sendMessage(ownerJid, {
-        text: `${deleteDesign}
-
-*Message :* ${originalText}`,
-        mentions: sender.includes("@") ? [sender] : []
-      });
+      await sock.sendMessage(ownerJid, { text: `${deleteDesign}\n\n*Message :* ${originalText}`, mentions: sender.includes('@') ? [sender] : [] });
     } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
-      const media = await downloadMediaMessage(
-        cached,
-        "buffer",
-        {},
-        { logger: pino({ level: "silent" }), reuploadRequest: sock.updateMediaMessage }
-      );
-
-      if (original.imageMessage) {
-        await sock.sendMessage(ownerJid, { image: media, caption: deleteDesign, mentions: sender.includes("@") ? [sender] : [] });
-      } else if (original.videoMessage) {
-        await sock.sendMessage(ownerJid, { video: media, caption: deleteDesign, mentions: sender.includes("@") ? [sender] : [] });
-      } else if (original.audioMessage) {
-        await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || "audio/mpeg", ptt: !!original.audioMessage.ptt });
-        await sock.sendMessage(ownerJid, { text: deleteDesign }, { quoted: cached });
-      } else if (original.documentMessage) {
-        await sock.sendMessage(ownerJid, {
-          document: media,
-          mimetype: original.documentMessage.mimetype || "application/octet-stream",
-          fileName: original.documentMessage.fileName || "deleted-file",
-          caption: deleteDesign
-        });
-      } else if (original.stickerMessage) {
-        await sock.sendMessage(ownerJid, { sticker: media });
-        await sock.sendMessage(ownerJid, { text: deleteDesign }, { quoted: cached });
-      }
+      const media = await downloadMediaMessage(cached, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
+      if (original.imageMessage) await sock.sendMessage(ownerJid, { image: media, caption: deleteDesign, mentions: sender.includes('@') ? [sender] : [] });
+      else if (original.videoMessage) await sock.sendMessage(ownerJid, { video: media, caption: deleteDesign, mentions: sender.includes('@') ? [sender] : [] });
+      else if (original.audioMessage) { await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || 'audio/mpeg', ptt: !!original.audioMessage.ptt }); await sock.sendMessage(ownerJid, { text: deleteDesign }); }
+      else if (original.documentMessage) await sock.sendMessage(ownerJid, { document: media, mimetype: original.documentMessage.mimetype || 'application/octet-stream', fileName: original.documentMessage.fileName || 'deleted-file', caption: deleteDesign });
+      else if (original.stickerMessage) { await sock.sendMessage(ownerJid, { sticker: media }); await sock.sendMessage(ownerJid, { text: deleteDesign }); }
     }
-  } catch (e) {
-    console.error("ANTI-DELETE ERROR:", e.message);
-  } finally {
-    global.messageCache.delete(cacheKey);
-  }
+  } catch (e) { console.error('ANTI-DELETE ERROR:', e.message); }
+  finally { global.messageCache.delete(cacheKey); }
 }
 
 sock.ev.on('messages.delete', async (data) => {
-  if (data?.keys) {
-    for (const key of data.keys) await handleDeletedMessage(key);
-  }
+  for (const key of (data?.keys || [])) await handleDeletedMessage(key);
 });
 
 sock.ev.on('messages.update', async (updates) => {
   for (const entry of updates || []) {
     const update = entry?.update || {};
     const protocolType = update?.message?.protocolMessage?.type;
-    const stub = String(update?.messageStubType || "");
-    if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === "0" || /REVOKE/i.test(stub)) {
-      await handleDeletedMessage(entry.key);
-    }
+    const stub = String(update?.messageStubType || '');
+    if (protocolType === 0 || update?.messageStubType === WAMessageStubType.REVOKE || stub === '0' || /REVOKE/i.test(stub)) await handleDeletedMessage(entry.key);
   }
 });
-
 sock.ev.on('connection.update', async (u)=>{
   console.log("CONNECTION UPDATE:", u.connection || "no connection state", u.lastDisconnect?.error?.message || "");
   if(u.qr) qrcode.generate(u.qr,{small:true});
@@ -191,9 +151,8 @@ function extractInteractiveId(message){
 }
 
 sock.ev.on('messages.upsert', async ({messages})=>{
-for (const m of messages || []) {
-if(!m?.message) continue;
-console.log('MESSAGE RECEIVED:', m.key?.remoteJid, m.key?.fromMe ? 'fromMe' : 'incoming');
+let m=messages[0];
+if(!m.message) return;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
 let sender=m.key.participant||chat;
@@ -229,101 +188,47 @@ let pushName = m.pushName || "User"
 
 // ===== ANTI-VIEWONCE: REPLY TO A VIEW-ONCE TO RESTORE IT =====
 const findViewOnce = (msg) => {
-  if (!msg || typeof msg !== "object") return null;
-  for (const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension"]) {
+  if (!msg || typeof msg !== 'object') return null;
+  for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension']) {
     if (msg[wrapper]?.message) {
       const inner = msg[wrapper].message;
       const nested = findViewOnce(inner);
       if (nested) return nested;
-      const type = Object.keys(inner || {}).find(k => ["imageMessage","videoMessage","audioMessage"].includes(k));
+      const type = Object.keys(inner || {}).find(k => ['imageMessage','videoMessage','audioMessage'].includes(k));
       if (type) return { type, message: inner };
     }
   }
   return null;
 };
-
-const getReplyContext = (msg) =>
-  msg?.extendedTextMessage?.contextInfo ||
-  msg?.buttonsResponseMessage?.contextInfo ||
-  msg?.templateButtonReplyMessage?.contextInfo ||
-  msg?.listResponseMessage?.contextInfo ||
-  msg?.interactiveResponseMessage?.contextInfo ||
-  null;
-
+const getReplyContext = (msg) => msg?.extendedTextMessage?.contextInfo || msg?.buttonsResponseMessage?.contextInfo || msg?.templateButtonReplyMessage?.contextInfo || msg?.listResponseMessage?.contextInfo || msg?.interactiveResponseMessage?.contextInfo || null;
 try {
   const detectedViewOnce = findViewOnce(m.message);
-  if (detectedViewOnce && detectedViewOnce.message) {
-    global.viewOnceCache.set(`${chat}:${m.key.id}`, m);
-    if (global.viewOnceCache.size > 200) {
-      const first = global.viewOnceCache.keys().next().value;
-      if (first) global.viewOnceCache.delete(first);
-    }
-  }
-
+  if (detectedViewOnce?.message) { global.viewOnceCache.set(`${chat}:${m.key.id}`, m); if (global.viewOnceCache.size > 200) { const first = global.viewOnceCache.keys().next().value; if (first) global.viewOnceCache.delete(first); } }
   if (global.antiviewonce) {
     const ctx = getReplyContext(m.message);
     const stanzaId = ctx?.stanzaId;
     let target = stanzaId ? global.viewOnceCache.get(`${chat}:${stanzaId}`) : null;
-
-    if (!target && stanzaId) {
-      const cached = global.messageCache.get(`${chat}:${stanzaId}`);
-      if (cached && findViewOnce(cached.message)) target = cached;
-    }
-
-    if (!target && ctx?.quotedMessage && findViewOnce(ctx.quotedMessage)) {
-      target = {
-        key: {
-          remoteJid: chat,
-          id: stanzaId || `quoted-${Date.now()}`,
-          fromMe: false,
-          participant: ctx.participant || sender
-        },
-        message: ctx.quotedMessage,
-        pushName: "User"
-      };
-    }
-
+    if (!target && stanzaId) { const cached = global.messageCache.get(`${chat}:${stanzaId}`); if (cached && findViewOnce(cached.message)) target = cached; }
+    if (!target && ctx?.quotedMessage && findViewOnce(ctx.quotedMessage)) target = { key: { remoteJid: chat, id: stanzaId || `quoted-${Date.now()}`, fromMe: false, participant: ctx.participant || sender }, message: ctx.quotedMessage, pushName: 'User' };
     if (target?.message) {
       const view = findViewOnce(target.message);
-      if (view?.message && ["imageMessage","videoMessage","audioMessage"].includes(view.type)) {
+      if (view?.message && ['imageMessage','videoMessage','audioMessage'].includes(view.type)) {
         const inner = { [view.type]: view.message[view.type] || view.message };
-        const downloadable = { ...target, message: inner };
-        const buffer = await downloadMediaMessage(
-          downloadable,
-          "buffer",
-          {},
-          { logger: pino({ level: "silent" }), reuploadRequest: sock.updateMediaMessage }
-        );
-
-        const caption =
-`┏━━━━━━━━━━━━━━
+        const buffer = await downloadMediaMessage({ ...target, message: inner }, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
+        const caption = `┏━━━━━━━━━━━━━━
 ┃ 👁️ *ANTI VIEW ONE*
 ┗━━━━━━━━━━━━━━
 *Note :-* _Do not use this service to damage the image of any person._
 ━━━━━━━━━━━━━━━━━━━━
 ${settings.footer}`;
-
-        if (view.type === "imageMessage") {
-          await sock.sendMessage(chat, { image: buffer, caption });
-        } else if (view.type === "videoMessage") {
-          await sock.sendMessage(chat, { video: buffer, caption });
-        } else if (view.type === "audioMessage") {
-          await sock.sendMessage(chat, {
-            audio: buffer,
-            mimetype: view.message[view.type]?.mimetype || "audio/mpeg",
-            ptt: !!view.message[view.type]?.ptt
-          });
-          await sock.sendMessage(chat, { text: caption });
-        }
-
+        if (view.type === 'imageMessage') await sock.sendMessage(chat, { image: buffer, caption });
+        else if (view.type === 'videoMessage') await sock.sendMessage(chat, { video: buffer, caption });
+        else if (view.type === 'audioMessage') { await sock.sendMessage(chat, { audio: buffer, mimetype: view.message[view.type]?.mimetype || 'audio/mpeg', ptt: !!view.message[view.type]?.ptt }); await sock.sendMessage(chat, { text: caption }); }
         if (stanzaId) global.viewOnceCache.delete(`${chat}:${stanzaId}`);
       }
     }
   }
-} catch (e) {
-  console.error("ANTI-VIEWONCE ERROR:", e.message);
-}
-
+} catch (e) { console.error('ANTI-VIEWONCE ERROR:', e.message); }
 // ===== AUTO ANTI-BOT: BLOCK NON-OWNER ? COMMANDS =====
 try {
   if (chat.endsWith("@g.us") && global.antibot[chat] !== false && !isOwner && body.trim().startsWith("?")) {
@@ -334,7 +239,7 @@ try {
     global.botWarnings[sender] = warn;
 
     const warnText = `*🛡️⃝⃘̉̉̉━⋆─❂*
-*┃* `𝗔𝗡𝗧𝗜 𝗕𝗢𝗧`
+*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
 *┗━━━━━━━━━━❂*
 
 *👤 User:* @${senderNumber}
