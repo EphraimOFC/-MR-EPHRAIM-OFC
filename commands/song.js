@@ -1,6 +1,4 @@
 const yts = require('yt-search')
-const ytdl = require('@distube/ytdl-core')
-const { Readable } = require('stream')
 const fs = require('fs')
 const path = require('path')
 const { sendInteractive, quickReply } = require('../ui')
@@ -155,208 +153,112 @@ try {
 
 async function downloadAndSend(sock, m, video, type, settings) {
 const chat = m.key?.remoteJid
-
 if (!chat || !chat.includes("@")) return
 
 let filePath = null
 
 try {
-try {
-await sock.sendMessage(chat, {
-react: { text: "⬇️", key: m.key }
-})
-} catch {}
+  try {
+    await sock.sendMessage(chat, { react: { text: "⬇️", key: m.key } })
+  } catch {}
 
-await sock.sendMessage(
-  chat,
-  {
-    text: `⏳ Downloading *${video.title}* as ${type}...`
-  },
-  { quoted: m }
-)
+  await sock.sendMessage(
+    chat,
+    { text: `⏳ Downloading *${video.title}* as ${type}...` },
+    { quoted: m }
+  )
 
-// Make temp directory
-const tempDir = path.join(__dirname, "../temp")
+  const tempDir = path.join(__dirname, "../temp")
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
 
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true })
-}
+  /*
+   * Use the Sasa Dev API for audio downloads.
+   * This avoids the YouTube HTTP 429 problem from direct ytdl requests.
+   */
+  const { ytMp3 } = require("../lib/sasaApi")
+  const data = await ytMp3(video.url, "128", false)
+  const result = data?.result || data?.data || data
+  const dlUrl =
+    result?.download_url ||
+    result?.downloadUrl ||
+    result?.url ||
+    result?.link ||
+    result?.audio ||
+    result?.audio_url
 
-filePath = path.join(
-  tempDir,
-  `${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`
-)
+  if (!dlUrl) throw new Error("Audio download link was not returned by the API")
 
-/*
- * PRIMARY DOWNLOADER
- * YouTube.js InnerTube first; ytdl-core is only a fallback.
- * This avoids relying on the direct YouTube request that is returning HTTP 429.
- */
-let downloadFormat = "m4a"
-let streamError = null
+  const title = result?.title || video.title || "song"
+  const audioUrl = String(dlUrl)
 
-try {
-  const { Innertube } = await import("youtubei.js")
-  const youtube = await Innertube.create()
-  const videoId = video.videoId || video.id || String(video.url).split("v=")[1]?.split("&")[0]
-  if (!videoId) throw new Error("YouTube video ID unavailable")
-  const webStream = await youtube.download(videoId, {
-    type: "audio",
-    quality: "best",
-    format: "mp4"
-  })
-  const nodeStream = Readable.fromWeb(webStream)
-  filePath = filePath.replace(/\\.mp3$/, ".m4a")
-  const writeStream = fs.createWriteStream(filePath)
+  const safeTitle = String(title)
+    .replace(/[\\/:*?"<>|]/g, "")
+    .slice(0, 100)
 
-  await new Promise((resolve, reject) => {
-    nodeStream.on("error", reject)
-    writeStream.on("error", reject)
-    writeStream.on("finish", resolve)
-    nodeStream.pipe(writeStream)
-  })
+  const fileName = `${safeTitle}.mp3`
+  const fileCaption =
+    `*🎵 ${title}*\\n` +
+    `*👤 Artist:* ${video.author?.name || result?.artist || "Unknown"}\\n` +
+    `*⏱️ Duration:* ${video.timestamp || result?.duration || "Unknown"}\\n\\n` +
+    `${settings.footer}`
+
+  if (type === "audio") {
+    await sock.sendMessage(
+      chat,
+      {
+        audio: { url: audioUrl },
+        mimetype: "audio/mpeg",
+        fileName
+      },
+      { quoted: m }
+    )
+    await sock.sendMessage(chat, { text: fileCaption }, { quoted: m })
+  } else if (type === "document") {
+    await sock.sendMessage(
+      chat,
+      {
+        document: { url: audioUrl },
+        mimetype: "audio/mpeg",
+        fileName,
+        caption: fileCaption
+      },
+      { quoted: m }
+    )
+  } else if (type === "voice") {
+    await sock.sendMessage(
+      chat,
+      {
+        audio: { url: audioUrl },
+        mimetype: "audio/mpeg",
+        ptt: true
+      },
+      { quoted: m }
+    )
+    await sock.sendMessage(chat, { text: fileCaption }, { quoted: m })
+  }
+
+  delete global.songCache[chat]
+
+  try {
+    await sock.sendMessage(chat, { react: { text: "✅️", key: m.key } })
+  } catch {}
 } catch (e) {
-  streamError = e
-  console.log("YOUTUBE.JS DOWNLOAD FAILED, TRYING YTDL:", e.message)
+  console.log("SONG DOWNLOAD ERROR:", e)
 
-  const stream = ytdl(video.url, {
-    filter: "audioonly",
-    quality: "highestaudio",
-    highWaterMark: 1 << 25,
-    requestOptions: {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0 Safari/537.36"
-      }
-    }
-  })
+  try {
+    await sock.sendMessage(chat, { react: { text: "❌️", key: m.key } })
+  } catch {}
 
-  const writeStream = fs.createWriteStream(filePath)
-
-  await new Promise((resolve, reject) => {
-    stream.on("error", reject)
-    writeStream.on("error", reject)
-    writeStream.on("finish", resolve)
-    stream.pipe(writeStream)
-  })
-}
-
-if (streamError && !fs.existsSync(filePath)) {
-  throw streamError
-}
-
-if (!fs.existsSync(filePath)) {
-  throw new Error("Audio file was not created")
-}
-
-const stat = fs.statSync(filePath)
-
-if (stat.size === 0) {
-  throw new Error("Downloaded audio is empty")
-}
-
-const sizeMB = (stat.size / (1024 * 1024)).toFixed(2)
-
-const safeTitle = String(video.title || "song")
-  .replace(/[\\/:*?"<>|]/g, "")
-  .slice(0, 100)
-
-const fileName = `${safeTitle}.${downloadFormat}`
-
-const fileCaption =
-  `*🎵 ${video.title}*\n` +
-  `*👤 Artist:* ${video.author?.name || "Unknown"}\n` +
-  `*⏱️ Duration:* ${video.timestamp || "Unknown"}\n` +
-  `*📦 Size:* ${sizeMB} MB\n\n` +
-  `${settings.footer}`
-
-const audioBuffer = fs.readFileSync(filePath)
-
-// AUDIO
-if (type === "audio") {
-  await sock.sendMessage(
-    chat,
-    {
-      audio: audioBuffer,
-      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
-      fileName
-    },
-    { quoted: m }
-  )
-
-  await sock.sendMessage(
-    chat,
-    { text: fileCaption },
-    { quoted: m }
-  )
-}
-
-// DOCUMENT
-else if (type === "document") {
-  await sock.sendMessage(
-    chat,
-    {
-      document: audioBuffer,
-      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
-      fileName,
-      caption: fileCaption
-    },
-    { quoted: m }
-  )
-}
-
-// VOICE NOTE
-else if (type === "voice") {
-  await sock.sendMessage(
-    chat,
-    {
-      audio: audioBuffer,
-      mimetype: downloadFormat === "m4a" ? "audio/mp4" : "audio/mpeg",
-      ptt: true
-    },
-    { quoted: m }
-  )
-
-  await sock.sendMessage(
-    chat,
-    { text: fileCaption },
-    { quoted: m }
-  )
-}
-
-// Clear cache after successful download
-delete global.songCache[chat]
-
-try {
-  await sock.sendMessage(chat, {
-    react: { text: "✅️", key: m.key }
-  })
-} catch {}
-
-} catch (e) {
-console.log("SONG DOWNLOAD ERROR:", e)
-
-try {
-  await sock.sendMessage(chat, {
-    react: { text: "❌️", key: m.key }
-  })
-} catch {}
-
-try {
-  await sock.sendMessage(
-    chat,
-    {
-      text: `❌ Download failed\n\n${e.message}\n\n${settings.footer}`
-    },
-    { quoted: m }
-  )
-} catch {}
-
+  try {
+    await sock.sendMessage(
+      chat,
+      { text: `❌ Download failed\\n\\n${e.message}\\n\\n${settings.footer}` },
+      { quoted: m }
+    )
+  } catch {}
 } finally {
-// Always remove temporary file
-if (filePath && fs.existsSync(filePath)) {
-try {
-fs.unlinkSync(filePath)
-} catch {}
-}
+  if (filePath && fs.existsSync(filePath)) {
+    try { fs.unlinkSync(filePath) } catch {}
+  }
 }
 }
