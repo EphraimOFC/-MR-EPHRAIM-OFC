@@ -1,30 +1,32 @@
 module.exports = {
 name: "ping",
 async execute(sock, m, args, settings) {
-  let chat = m.chat
-  let start = Date.now()
+  const chat = m.chat
+  const start = Date.now()
 
-  // 🏓 REACT IMMEDIATELY ON .ping MESSAGE
-  try { 
-    await sock.sendMessage(chat, { react: { text: "🏓", key: m.key } }) 
+  try {
+    await sock.sendMessage(chat, { react: { text: "🏓", key: m.key } })
   } catch {}
 
-  let speed = Date.now() - start
-  let upSec = process.uptime()
-  let mins = Math.floor(upSec / 60)
-  let hrs = Math.floor(mins / 60)
-  let uptime = hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`
-  let mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(0)
+  const speed = Date.now() - start
+  const upSec = process.uptime()
+  const mins = Math.floor(upSec / 60)
+  const hrs = Math.floor(mins / 60)
+  const uptime = hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`
+  const mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(0)
 
-  let txt = `> PONG
+  const txt = `╭━━━〔 🏓 𝗣𝗢𝗡𝗚 〕━━━╮
+┃
+┃  *𝗟𝗜𝗩𝗘*
+┃
+┃  ⚡ *Speed* > ${speed} ms
+┃  ⏱️ *Uptime* > ${uptime}
+┃  🧠 *Memory* > ${mem} MB
+┃
+╰━━━━━━━━━━━━━━━━━━╯
 
-┌─⬢ LIVE ──
-  Speed › ${speed} ms
-  Uptime › ${uptime}
-  Memory › ${mem} MB
-└───────────◍
-
-${settings.footer}`
+> redqueen.online
+> © rQueen Pro`
 
   await sock.sendMessage(chat, { text: txt }, { quoted: m })
 }
