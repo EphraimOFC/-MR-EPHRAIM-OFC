@@ -100,12 +100,22 @@ let sender=m.key.participant||chat;
 let isOwner=isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
 if(m.key.fromMe && !isOwner) return;
 m.chat=chat;
+
+const unwrapMessage = (msg) => {
+  if(!msg || typeof msg !== "object") return {};
+  for(const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]){
+    if(msg[wrapper]?.message) return unwrapMessage(msg[wrapper].message);
+  }
+  return msg;
+};
+
+const msg = unwrapMessage(m.message);
 let body=
-  m.message.conversation ||
-  m.message.extendedTextMessage?.text ||
-  m.message.buttonsResponseMessage?.selectedButtonId ||
-  m.message.templateButtonReplyMessage?.selectedId ||
-  m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+  msg.conversation ||
+  msg.extendedTextMessage?.text ||
+  msg.buttonsResponseMessage?.selectedButtonId ||
+  msg.templateButtonReplyMessage?.selectedId ||
+  msg.listResponseMessage?.singleSelectReply?.selectedRowId ||
   extractInteractiveId(m.message) ||
   "";
 
