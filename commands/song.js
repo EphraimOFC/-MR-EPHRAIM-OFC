@@ -14,7 +14,6 @@ const chat = m.key?.remoteJid
 const pushName = m.pushName || "User"
 const bodyText = args.join(" ").toLowerCase().trim()
 
-```
 // Never attempt to send to an invalid JID
 if (!chat || !chat.includes("@")) return
 
@@ -99,7 +98,6 @@ try {
   const fancyName = pushName.toUpperCase()
 
   const txt = `
-```
 
 *🎧⃝⃘━⋆─⋆──❂*
 *┊ ☠︎︎*
@@ -115,7 +113,6 @@ try {
 ${settings.footer}
 `
 
-```
   await sock.sendMessage(
     chat,
     {
@@ -161,7 +158,6 @@ ${settings.footer}
     { quoted: m }
   )
 }
-```
 
 }
 }
@@ -180,7 +176,6 @@ react: { text: "⬇️", key: m.key }
 })
 } catch {}
 
-```
 await sock.sendMessage(
   chat,
   {
@@ -308,12 +303,10 @@ try {
     react: { text: "✅️", key: m.key }
   })
 } catch {}
-```
 
 } catch (e) {
 console.log("SONG DOWNLOAD ERROR:", e)
 
-```
 try {
   await sock.sendMessage(chat, {
     react: { text: "❌️", key: m.key }
@@ -329,7 +322,6 @@ try {
     { quoted: m }
   )
 } catch {}
-```
 
 } finally {
 // Always remove temporary file
