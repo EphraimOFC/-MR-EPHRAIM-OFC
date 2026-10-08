@@ -23,7 +23,7 @@ global.botWarnings = global.botWarnings || {};
 
 async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
-const sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }) });
+const sock = makeWASocket({ auth: state, logger: pino({ level: 'info' }) });
 
 const commands = new Map();
 const cmdPath = path.join(__dirname,'commands');
@@ -34,12 +34,13 @@ fs.readdirSync(cmdPath).forEach(f=>{
       let c=require(`./commands/${f}`);
       commands.set(c.name,c);
       if(c.alias) c.alias.forEach(a=>commands.set(a,c));
-    }catch(e){}
+    }catch(e){ console.error(`FAILED COMMAND LOAD ${f}:`, e.message) }
   }
 });
 
 sock.ev.on('creds.update', saveCreds);
 sock.ev.on('connection.update', async (u)=>{
+  console.log("CONNECTION UPDATE:", u.connection || "no connection state", u.lastDisconnect?.error?.message || "");
   if(u.qr) qrcode.generate(u.qr,{small:true});
   if(u.connection==="close"){
     let r=u.lastDisconnect?.error?.output?.statusCode;
@@ -51,6 +52,8 @@ sock.ev.on('messages.upsert', async ({messages})=>{
 let m=messages[0];
 if(!m.message||m.key.fromMe) return;
 let chat=m.key.remoteJid;
+if(chat === "status@broadcast") return;
+m.chat=chat;
 let body=m.message.conversation||m.message.extendedTextMessage?.text||m.message.buttonsResponseMessage?.selectedButtonId||m.message.listResponseMessage?.singleSelectReply?.selectedRowId||"";
 let sender=m.key.participant||chat;
 let isOwner=isRealOwner(sender)||global.sudo?.includes(sender);
