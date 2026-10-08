@@ -150,7 +150,8 @@ function extractInteractiveId(message){
   return "";
 }
 
-sock.ev.on('messages.upsert', async ({messages})=>{
+sock.ev.on('messages.upsert', async ({messages, type})=>{
+console.log("MESSAGES UPSERT:", type, messages?.length || 0);
 for (const incoming of (messages || [])) {
 let m=incoming;
 if(!m.message) return;
