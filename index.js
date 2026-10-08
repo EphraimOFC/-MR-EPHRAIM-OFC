@@ -14,6 +14,9 @@ global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.j
 global.anticall = false;
 global.antiviewonce = true;
 global.creact = true;
+global.aliveReply = global.aliveReply || {};
+global.songCache = global.songCache || {};
+global.videoCache = global.videoCache || {};
 
 async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
@@ -45,7 +48,7 @@ sock.ev.on('messages.upsert', async ({messages})=>{
 let m=messages[0];
 if(!m.message||m.key.fromMe) return;
 let chat=m.key.remoteJid;
-let body=m.message.conversation||m.message.extendedTextMessage?.text||m.message.extendedTextMessage?.contextInfo?.quotedMessage?.conversation||"";
+let body=m.message.conversation||m.message.extendedTextMessage?.text||m.message.buttonsResponseMessage?.selectedButtonId||m.message.listResponseMessage?.singleSelectReply?.selectedRowId||"";
 let sender=m.key.participant||chat;
 let isOwner=isRealOwner(sender)||global.sudo?.includes(sender);
 
@@ -63,6 +66,26 @@ if(view && global.antiviewonce){
   else if(type.includes("audio")) await sock.sendMessage(ownerJid, { audio: buffer, mimetype: "audio/mpeg", ptt: true })
 }
 }catch(e){}
+
+// ===== ALIVE REPLY 1-4 HANDLER =====
+let cleanBody = body.trim().toLowerCase()
+if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
+  delete global.aliveReply[chat]
+  if(cleanBody==="1"){
+    body = ".menu"
+  } else if(cleanBody==="2"){
+    body = ".ping"
+  } else if(cleanBody==="3"){
+    if(!isOwner) return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m })
+    return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n\n${settings.footer}` }, { quoted: m })
+  } else if(cleanBody==="4"){
+    let up = Math.floor(process.uptime()/60)
+    let hrs = Math.floor(up/60)
+    let uptime = hrs>0? `${hrs}h ${up%60}m` : `${up}m`
+    return sock.sendMessage(chat, { text: `*🤖 BOT INFO*\n\n*Name:* E TECH OFC\n*Owner:* Mr Ephraim Ofc\n*Commands:* ${commands.size}\n*Uptime:* ${uptime}\n*Prefix:* ${settings.prefix}\n\n${settings.footer}` }, { quoted: m })
+  }
+}
+// ===== END ALIVE HANDLER =====
 
 // ===== DUAL PREFIX =====
 const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact"]
@@ -87,7 +110,10 @@ if(reactMap[cmdName] &&!stagedCmds.includes(cmdName)){
 }
 
 if(commands.has(cmdName)){
-  try{ await commands.get(cmdName).execute(sock,m,args,settings) }catch(e){ console.log(e) }
+  try{
+    m.pushName = m.pushName || chat
+    await commands.get(cmdName).execute(sock,m,args,settings)
+  }catch(e){ console.log(e) }
 }
 });
 }
