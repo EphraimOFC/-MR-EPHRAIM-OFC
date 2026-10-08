@@ -16,7 +16,7 @@ async execute(sock, m, args, settings) {
   const mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(0)
 
   const txt = `*🏓⃝⃘̉̉̉━⋆─❂*
-*┃* `𝗣𝗢𝗡𝗚`
+*┃* \`𝗣𝗢𝗡𝗚\`
 *┗━━━━━━━━━━❂*
 
 *┏━ ⌬ 𝗟𝗜𝗩𝗘 ━━━━*
