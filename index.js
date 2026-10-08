@@ -181,7 +181,7 @@ for (const incoming of (messages || [])) {
 let m=incoming;
 if(!m.message) continue;
 let chat=m.key.remoteJid;
-if(chat === "status@broadcast") return;
+if(chat === "status@broadcast") continue;
 let sender=m.key.participant||chat;
 let senderAlt=m.key.participantAlt||m.key.remoteJidAlt||"";
 let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRealOwner(chat)||global.sudo?.includes(sender)||global.sudo?.includes(senderAlt);
