@@ -154,7 +154,7 @@ sock.ev.on('messages.upsert', async ({messages, type})=>{
 console.log("MESSAGES UPSERT:", type, messages?.length || 0);
 for (const incoming of (messages || [])) {
 let m=incoming;
-if(!m.message) return;
+if(!m.message) continue;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
 let sender=m.key.participant||chat;
