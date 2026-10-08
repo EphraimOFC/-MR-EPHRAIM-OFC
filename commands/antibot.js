@@ -16,7 +16,7 @@ async execute(sock, m, args, settings) {
     return sock.sendMessage(chat, { text: `*🛡️ Anti Bot Enabled ✅*\n${settings.footer}` }, { quoted: m })
   }
   if(mode==="off"){
-    delete global.antibot[chat]
+    global.antibot[chat] = false
     return sock.sendMessage(chat, { text: `*🛡️ Anti Bot Disabled 🔴*\n${settings.footer}` }, { quoted: m })
   }
 }
