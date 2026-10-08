@@ -159,8 +159,9 @@ function extractInteractiveId(message){
 }
 
 sock.ev.on('messages.upsert', async ({messages})=>{
-let m=messages[0];
-if(!m.message) return;
+for (const m of messages || []) {
+if(!m?.message) continue;
+console.log('MESSAGE RECEIVED:', m.key?.remoteJid, m.key?.fromMe ? 'fromMe' : 'incoming');
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
 let sender=m.key.participant||chat;
