@@ -151,7 +151,8 @@ function extractInteractiveId(message){
 }
 
 sock.ev.on('messages.upsert', async ({messages})=>{
-let m=messages[0];
+for (const incoming of (messages || [])) {
+let m=incoming;
 if(!m.message) return;
 let chat=m.key.remoteJid;
 if(chat === "status@broadcast") return;
@@ -400,6 +401,7 @@ if(commands.has(cmdName)){
       setTimeout(()=>{ delete global.menuReply[chat] },120000)
     }
   }catch(e){ console.error(`COMMAND ERROR ${cmdName}:`,e) }
+}
 }
 });
 }
