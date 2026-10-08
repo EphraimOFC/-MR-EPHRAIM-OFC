@@ -219,6 +219,33 @@ if(view && global.antiviewonce){
 }
 }catch(e){}
 
+// ===== AUTO ANTI-BOT: BLOCK NON-OWNER ? COMMANDS =====
+try {
+  if (chat.endsWith("@g.us") && global.antibot[chat] && !isOwner && body.trim().startsWith("?")) {
+    try { await sock.sendMessage(chat, { delete: m.key }) } catch {}
+    const senderNumber = String(sender).split("@")[0];
+    const warn = (global.botWarnings[sender] || 0) + 1;
+    global.botWarnings[sender] = warn;
+
+    await sock.sendMessage(chat, {
+      text: `*🛡️⃝⃘━⋆─❂*
+*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
+*┗━━━━━━━━━━❂*
+
+*👤 User:* @${senderNumber}
+*🚫 Reason:* _Unauthorized ? prefix usage_
+*📉 Warning:* _${warn}/5_
+*⚠️ Action:* _Deleted & Warned_
+
+${settings.footer}`,
+      mentions: [sender]
+    });
+    return;
+  }
+} catch (e) {
+  console.error("AUTO ANTI-BOT ERROR:", e.message);
+}
+
 // ===== AUTO ANTI-BOT (EXACT REDQUEEN FORMAT 0/5) =====
 try{
   if(chat.endsWith("@g.us") && global.antibot[chat] &&!isOwner){
