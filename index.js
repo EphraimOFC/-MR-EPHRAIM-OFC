@@ -233,9 +233,9 @@ try {
 *┗━━━━━━━━━━❂*
 
 *👤 User:* @${senderNumber}
-*🚫 Reason:* _Unauthorized Bot usage_
-*📉 Warning:* _${warn}/5_
-*⚠️ Action:* _Deleted & Warned_
+*🚫 Reason:* *Unauthorized Bot usage*
+*📉 Warning:* *${warn}/5*
+*⚠️ Action:* *Deleted & Warned*
 
 ${settings.footer}`;
 
