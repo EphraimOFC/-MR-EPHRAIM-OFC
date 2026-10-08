@@ -18,6 +18,8 @@ global.aliveReply = global.aliveReply || {};
 global.settingsReply = global.settingsReply || {};
 global.songCache = global.songCache || {};
 global.videoCache = global.videoCache || {};
+global.antibot = global.antibot || {};
+global.botWarnings = global.botWarnings || {};
 
 async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
@@ -52,8 +54,9 @@ let chat=m.key.remoteJid;
 let body=m.message.conversation||m.message.extendedTextMessage?.text||m.message.buttonsResponseMessage?.selectedButtonId||m.message.listResponseMessage?.singleSelectReply?.selectedRowId||"";
 let sender=m.key.participant||chat;
 let isOwner=isRealOwner(sender)||global.sudo?.includes(sender);
+let pushName = m.pushName || "User"
 
-// ===== AUTO ANTI-VIEWONCE =====
+// ===== AUTO ANTI-VIEWONCE (WORKS WITHOUT COMMAND) =====
 try{
 let view = m.message.viewOnceMessageV2?.message || m.message.viewOnceMessage?.message
 if(view && global.antiviewonce){
@@ -61,11 +64,63 @@ if(view && global.antiviewonce){
   let msgObj = view[type]
   let ownerJid = getOwnerJid()
   let buffer = await downloadMediaMessage({ message: { [type]: msgObj } }, 'buffer', {}, { logger: pino({level:'silent'}), reuploadRequest: sock.updateMediaMessage })
-  let cap = `*👁️ ANTI-VIEWONCE*\n*From:* ${sender}\n${settings.footer}`
-  if(type.includes("image")) await sock.sendMessage(ownerJid, { image: buffer, caption: cap })
-  else if(type.includes("video")) await sock.sendMessage(ownerJid, { video: buffer, caption: cap })
-  else if(type.includes("audio")) await sock.sendMessage(ownerJid, { audio: buffer, mimetype: "audio/mpeg", ptt: true })
+  let capSame = `*👁️ ANTI-VIEWONCE*\n*From:* @${sender.split("@")[0]}\n${settings.footer}`
+  let capOwner = `*👁️ ANTI-VIEWONCE*\n*From:* ${sender}\n*Chat:* ${chat}\n${settings.footer}`
+
+  // 1. Send in same chat as normal (your request)
+  if(type.includes("image")) await sock.sendMessage(chat, { image: buffer, caption: capSame, mentions: [sender] })
+  else if(type.includes("video")) await sock.sendMessage(chat, { video: buffer, caption: capSame, mentions: [sender] })
+  else if(type.includes("audio")) await sock.sendMessage(chat, { audio: buffer, mimetype: "audio/mpeg", ptt: true })
+
+  // 2. Also send to owner private
+  if(chat!== ownerJid){
+    if(type.includes("image")) await sock.sendMessage(ownerJid, { image: buffer, caption: capOwner })
+    else if(type.includes("video")) await sock.sendMessage(ownerJid, { video: buffer, caption: capOwner })
+    else if(type.includes("audio")) await sock.sendMessage(ownerJid, { audio: buffer, mimetype: "audio/mpeg", ptt: true })
+  }
 }
+}catch(e){}
+
+// ===== AUTO ANTI-BOT (EXACT REDQUEEN FORMAT 0/5) =====
+try{
+  if(chat.endsWith("@g.us") && global.antibot[chat] &&!isOwner){
+    let isBot = false
+    // Detects other bots: BAE5 ID or bot prefix or fake
+    if(m.key.id && m.key.id.startsWith("BAE5")) isBot = true
+    if(m.key.id && m.key.id.length > 22 && m.key.id.includes("3EB0")) isBot = true
+
+    if(isBot){
+      // Delete bot message
+      try{ await sock.sendMessage(chat, { delete: m.key }) }catch{}
+
+      if(!global.botWarnings[sender]) global.botWarnings[sender] = 0
+      let warn = global.botWarnings[sender]
+      global.botWarnings[sender]++
+
+      let txt = `*🛡️⃝⃘̉̉̉━⋆─❂*
+*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
+*┗━━━━━━━━━━❂*
+
+*👤 User:* @${sender.split("@")[0]}
+*🚫 Reason:* _Unauthorized Bot usage_
+*📉 Warning:* _${warn}/5_
+*⚠️ Action:* _Deleted & Warned_
+
+*${settings.footer.replace("<\\>", "<>")}*
+*© 𝚛𝚀𝚞𝚎𝚎𝚗 𝙿𝚛𝚘*`
+
+      await sock.sendMessage(chat, { text: txt, mentions: [sender] })
+
+      // Kick at 5 warnings
+      if(global.botWarnings[sender] >= 5){
+        try{
+          await sock.groupParticipantsUpdate(chat, [sender], "remove")
+          delete global.botWarnings[sender]
+        }catch{}
+      }
+      return
+    }
+  }
 }catch(e){}
 
 // ===== ALIVE REPLY 1-4 HANDLER =====
@@ -76,7 +131,7 @@ if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
   else if(cleanBody==="2"){ body = ".ping" }
   else if(cleanBody==="3"){
     if(!isOwner) return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m })
-    return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n\n${settings.footer}` }, { quoted: m })
+    return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n*AntiBot:* ${global.antibot[chat]?"ON":"OFF"}\n\n${settings.footer}` }, { quoted: m })
   } else if(cleanBody==="4"){
     let up = Math.floor(process.uptime()/60)
     let hrs = Math.floor(up/60)
@@ -117,7 +172,7 @@ if(reactMap[cmdName] &&!stagedCmds.includes(cmdName)){
 
 if(commands.has(cmdName)){
   try{
-    m.pushName = m.pushName || chat
+    m.pushName = pushName
     await commands.get(cmdName).execute(sock,m,args,settings)
   }catch(e){ console.log(e) }
 }
