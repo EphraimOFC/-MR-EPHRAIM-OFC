@@ -1,46 +1,72 @@
+global.movieReply = global.movieReply || {}
 const axios = require('axios')
+
 module.exports = {
 name: "movie",
-alias: ["film"],
-async execute(sock, m, args, settings){
-try { await sock.sendMessage(m.chat, { react: { text: "✅️", key: m.key } }) } catch{}
-let query = args.join(" ")
-if(!query) {
-  try { await sock.sendMessage(m.chat, { react: { text: "❌️", key: m.key } }) } catch{}
-  return sock.sendMessage(m.chat, { text: `❌ Provide movie name\nEx:.movie John Wick` }, { quoted: m })
-}
-try {
-  try { await sock.sendMessage(m.chat, { react: { text: "⬇️", key: m.key } }) } catch{}
-  let api = `https://api.davidcyriltech.my.id/movie?query=${encodeURIComponent(query)}`
-  let { data } = await axios.get(api)
-  let movie = data.result || data.movies?.[0] || data
+alias: ["film","films"],
+async execute(sock, m, args, settings) {
+  let chat = m.chat
+  let pushName = m.pushName || "User"
+  let query = args.join(" ").trim()
 
-  let txt = `
-*🎬⃝⃘̉̉̉━⋆─⋆──❂*
-*✧ ${(m.pushName||"User").toUpperCase()}𓂃✍︎𝄞*
+  // HANDLE SITE SELECTION 1-5
+  if(global.movieReply[chat] && ["1","2","3","4","5"].includes(query)){
+    let search = global.movieReply[chat].query
+    let site = ["Sinhalasub","Sub.lk","Baiscopes","Moviesublk","Cinesubz"][parseInt(query)-1]
+    delete global.movieReply[chat]
+
+    try{ await sock.sendMessage(chat, { react: { text: "🔍", key: m.key } }) }catch{}
+
+    await sock.sendMessage(chat, { text: `*🎬 Searching ${site} for:* ${search}\n\n_⏳ Fetching results..._\n${settings.footer}` }, { quoted: m })
+
+    // TODO: Add your actual scraping logic here
+    // For now demo result
+    let demo = `*🎬 ${site} Results for:* ${search}
+
+*┏━「 RESULTS ⤵️ 」*
+*┃* 1️⃣ Venom (2018) Sinhala Sub
+*┃* 2️⃣ Venom: Let There Be Carnage (2021)
+*┃* 3️⃣ Venom: The Last Dance (2024)
+*┗━━━━━━━━━━❥❥❥*
+
+Reply number to download
+
+${settings.footer}`
+
+    return sock.sendMessage(chat, { text: demo }, { quoted: m })
+  }
+
+  if(!query) return sock.sendMessage(chat, { text: `*Example:*.movie venom\n${settings.footer}` }, { quoted: m })
+
+  try{ await sock.sendMessage(chat, { react: { text: "🎬", key: m.key } }) }catch{}
+
+  // SAVE FOR REPLY
+  global.movieReply[chat] = { query: query, time: Date.now() }
+  setTimeout(()=>{ delete global.movieReply[chat] }, 120000)
+
+  let txt = `*🎬⃝⃘̉̉̉━⋆─⋆──❂*
+*┊ ┊ ┊ ┊ ┊*
+*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*
+*┊ ☠︎︎*
+*✧ ${pushName}𓂃✍︎𝄞*
 *╰────────────────❂*
  *┏━━━━━━━━━━━❥❥❥*
- *┃* \`𝗠𝗢𝗩𝗜𝗘 𝗦𝗘𝗔𝗥𝗖𝗛\`
+ *┃* \`𝗙𝗜𝗟𝗠 𝗦𝗘𝗔𝗥𝗖𝗛\`
  *┗━━━━━━━━━━━❥❥❥*
 
-*📌 Title:* ${movie.title || query}
-*📅 Year:* ${movie.year || movie.release_date || "N/A"}
-*⭐ Rating:* ${movie.rating || movie.vote_average || "N/A"}
-*🎭 Genre:* ${movie.genre || "N/A"}
+*✨ Search :-* ${query}
+*📁 Choose a site:*
 
-*📝 Plot:* ${movie.plot || movie.overview || "No plot available"}
+*┏━「 𝚁𝚎𝙿𝙻𝚈 𝙽𝚄𝙼𝙱𝚎𝚁 ⤵️ 」*
+*┃* 1️⃣ \`Sinhalasub\`
+*┃* 2️⃣ \`Sub.lk\`
+*┃* 3️⃣ \`Baiscopes\`
+*┃* 4️⃣ \`Moviesublk\`
+*┃* 5️⃣ \`Cinesubz\`
+*┗━━━━━━━━━━❥❥❥*
 
-${settings.footer}
-`
-  if(movie.poster || movie.image) {
-    await sock.sendMessage(m.chat, { image: { url: movie.poster || movie.image }, caption: txt }, { quoted: m })
-  } else {
-    await sock.sendMessage(m.chat, { text: txt }, { quoted: m })
-  }
-  try { await sock.sendMessage(m.chat, { react: { text: "✅️", key: m.key } }) } catch{}
-} catch(e){
-  try { await sock.sendMessage(m.chat, { react: { text: "❌️", key: m.key } }) } catch{}
-  sock.sendMessage(m.chat, { text: `❌ Movie not found: ${query}` }, { quoted: m })
-}
+${settings.footer}`
+
+  await sock.sendMessage(chat, { text: txt }, { quoted: m })
 }
 }
