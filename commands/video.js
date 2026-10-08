@@ -2,6 +2,8 @@ const yts = require('yt-search')
 const axios = require('axios')
 const fs = require('fs')
 const path = require('path')
+const { ytMp4 } = require('../lib/sasaApi')
+const { sendInteractive, quickReply } = require('../ui')
 
 global.videoCache = global.videoCache || {}
 
@@ -37,19 +39,24 @@ try {
   }
   global.videoCache[chat] = video
 
-  let txt = `*🎬 VIDEO DOWNLOADER*\n\n*📌 Title:* ${video.title}\n*⏱️ Duration:* ${video.timestamp}\n\n*Tap Quality Below ⤵️*\n\n${settings.footer}`
+  let txt = `*🎬 VIDEO DOWNLOADER*
 
-  await sock.sendMessage(chat, {
-    image: { url: video.thumbnail },
-    caption: txt,
+*📌 Title:* ${video.title}
+*⏱️ Duration:* ${video.timestamp}
+
+*Tap Quality Below ⤵️*`;
+
+  await sendInteractive(sock, m, {
+    title: "E TECH OFC • VIDEO",
+    body: txt,
+    image: video.thumbnail,
     footer: settings.footer,
     buttons: [
-      { buttonId: "360p", buttonText: { displayText: "360P 📹" }, type: 1 },
-      { buttonId: "480p", buttonText: { displayText: "480P 📹" }, type: 1 },
-      { buttonId: "720p", buttonText: { displayText: "720P 📹" }, type: 1 }
-    ],
-    headerType: 4
-  }, { quoted: m })
+      quickReply("360P 📹", "etech_video_360"),
+      quickReply("480P 📹", "etech_video_480"),
+      quickReply("720P 📹", "etech_video_720")
+    ]
+  })
 
 } catch(err){
   try { await sock.sendMessage(chat, { react: { text: "❌️", key: m.key } }) } catch{}
@@ -65,9 +72,15 @@ try{
 
   let videoUrl = null
   try{
-    let api = `https://api.davidcyriltech.my.id/youtube/mp4?url=${encodeURIComponent(video.url)}&quality=${quality}`
-    let { data } = await axios.get(api, { timeout: 25000 })
-    videoUrl = data.result?.download_url || data.download_url || data.url
+    let data = await ytMp4(video.url, quality, false)
+    const result = data?.result || data?.data || data
+    videoUrl =
+      result?.download_url ||
+      result?.downloadUrl ||
+      result?.url ||
+      result?.link ||
+      result?.video ||
+      result?.video_url
   }catch(e){}
 
   let filePath = path.join(__dirname, `../temp/${Date.now()}.mp4`)
