@@ -1,28 +1,31 @@
 module.exports = {
 name: "ping",
-execute: async (sock, m, args, settings) => {
-  const start = Date.now();
-  const msg = await sock.sendMessage(m.key.remoteJid, { text: "*Pinging E TECH OFC...* ⚡" }, { quoted: m });
-  const latency = Date.now() - start;
-  const uptime = process.uptime();
-  const hours = Math.floor(uptime / 3600);
-  const mins = Math.floor((uptime % 3600) / 60);
-  const secs = Math.floor(uptime % 60);
+async execute(sock, m, args, settings) {
+  let chat = m.chat
+  let start = Date.now()
 
-  const text = `
-╭───◐ *E TECH OFC PING* ◐───
-│ ⚡ *Speed:* ${latency}ms
-│ ⏱️ *Uptime:* ${hours}h ${mins}m ${secs}s
-│ 🤖 *Bot:* E TECH OFC V2.0
-│ 👑 *Owner:* MR EPHRAIM OFC
-│ 📞 *Main:* 2347072956206
-│ 📞 *Backup:* 2348108717744
-╰───◐
-✅ *Active & Stable*
+  // 🏓 REACT IMMEDIATELY ON .ping MESSAGE
+  try { 
+    await sock.sendMessage(chat, { react: { text: "🏓", key: m.key } }) 
+  } catch {}
 
-> ${settings.footer}
-  `;
+  let speed = Date.now() - start
+  let upSec = process.uptime()
+  let mins = Math.floor(upSec / 60)
+  let hrs = Math.floor(mins / 60)
+  let uptime = hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`
+  let mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(0)
 
-  await sock.sendMessage(m.key.remoteJid, { text: text, edit: msg.key }, { quoted: m });
+  let txt = `> PONG
+
+┌─⬢ LIVE ──
+  Speed › ${speed} ms
+  Uptime › ${uptime}
+  Memory › ${mem} MB
+└───────────◍
+
+${settings.footer}`
+
+  await sock.sendMessage(chat, { text: txt }, { quoted: m })
 }
 }
