@@ -223,70 +223,41 @@ if(view && global.antiviewonce){
 try {
   if (chat.endsWith("@g.us") && global.antibot[chat] !== false && !isOwner && body.trim().startsWith("?")) {
     try { await sock.sendMessage(chat, { delete: m.key }) } catch {}
+
     const senderNumber = String(sender).split("@")[0];
     const warn = (global.botWarnings[sender] || 0) + 1;
     global.botWarnings[sender] = warn;
 
-    await sock.sendMessage(chat, {
-      text: `*🛡️⃝⃘━⋆─❂*
+    const warnText = `*🛡️⃝⃘̉̉̉━⋆─❂*
 *┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
 *┗━━━━━━━━━━❂*
 
 *👤 User:* @${senderNumber}
-*🚫 Reason:* _Unauthorized ? prefix usage_
+*🚫 Reason:* _Unauthorized Bot usage_
 *📉 Warning:* _${warn}/5_
 *⚠️ Action:* _Deleted & Warned_
 
-${settings.footer}`,
+${settings.footer}`;
+
+    await sock.sendMessage(chat, {
+      text: warnText,
       mentions: [sender]
     });
+
+    // Remove the user after the fifth warning when the bot has permission.
+    if (warn >= 5) {
+      try {
+        await sock.groupParticipantsUpdate(chat, [sender], "remove");
+        delete global.botWarnings[sender];
+      } catch (e) {
+        console.error("ANTI-BOT REMOVE ERROR:", e.message);
+      }
+    }
     return;
   }
 } catch (e) {
   console.error("AUTO ANTI-BOT ERROR:", e.message);
 }
-
-// ===== AUTO ANTI-BOT (EXACT REDQUEEN FORMAT 0/5) =====
-try{
-  if(chat.endsWith("@g.us") && global.antibot[chat] &&!isOwner){
-    let isBot = false
-    // Detects other bots: BAE5 ID or bot prefix or fake
-    if(m.key.id && m.key.id.startsWith("BAE5")) isBot = true
-    if(m.key.id && m.key.id.length > 22 && m.key.id.includes("3EB0")) isBot = true
-
-    if(isBot){
-      // Delete bot message
-      try{ await sock.sendMessage(chat, { delete: m.key }) }catch{}
-
-      if(!global.botWarnings[sender]) global.botWarnings[sender] = 0
-      let warn = global.botWarnings[sender]
-      global.botWarnings[sender]++
-
-      let txt = `*🛡️⃝⃘̉̉̉━⋆─❂*
-*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`
-*┗━━━━━━━━━━❂*
-
-*👤 User:* @${sender.split("@")[0]}
-*🚫 Reason:* _Unauthorized Bot usage_
-*📉 Warning:* _${warn}/5_
-*⚠️ Action:* _Deleted & Warned_
-
-*${settings.footer.replace("<\\>", "<>")}*
-*© 𝚛𝚀𝚞𝚎𝚎𝚗 𝙿𝚛𝚘*`
-
-      await sock.sendMessage(chat, { text: txt, mentions: [sender] })
-
-      // Kick at 5 warnings
-      if(global.botWarnings[sender] >= 5){
-        try{
-          await sock.groupParticipantsUpdate(chat, [sender], "remove")
-          delete global.botWarnings[sender]
-        }catch{}
-      }
-      return
-    }
-  }
-}catch(e){}
 
 // ===== ALIVE REPLY 1-4 HANDLER =====
 let cleanBody = body.trim().toLowerCase()
