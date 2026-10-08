@@ -22,6 +22,8 @@ global.songCache = global.songCache || {};
 global.videoCache = global.videoCache || {};
 global.antibot = global.antibot || {};
 global.botWarnings = global.botWarnings || {};
+global.antiDelete = true;
+global.messageCache = global.messageCache || new Map();
 
 async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
@@ -100,6 +102,12 @@ let sender=m.key.participant||chat;
 let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(chat)||global.sudo?.includes(sender);
 if(m.key.fromMe && !isOwner) return;
 m.chat=chat;
+
+global.messageCache.set(`${chat}:${m.key.id}`, m);
+if (global.messageCache.size > 1000) {
+  const first = global.messageCache.keys().next().value;
+  if (first) global.messageCache.delete(first);
+}
 
 const unwrapMessage = (msg) => {
   if(!msg || typeof msg !== "object") return {};
@@ -238,6 +246,19 @@ if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
 }
 
 // ===== SONG NATIVE BUTTON REPLIES =====
+if(body.startsWith("etech_video_") && commands.has("video")){
+  const action = body.toLowerCase();
+  const quality = action.replace("etech_video_", "");
+  if(["360","480","720"].includes(quality)){
+    try{
+      m.pushName = pushName;
+      return await commands.get("video").execute(sock,m,[quality + "p"],settings);
+    }catch(e){
+      console.error("VIDEO BUTTON ERROR:",e);
+      return sock.sendMessage(chat, { text: `❌ Video button error: ${e.message}\n${settings.footer}` }, { quoted: m });
+    }
+  }
+}
 if(body.startsWith("etech_song_") && commands.has("song")){
   const action = body.toLowerCase();
   if(action === "etech_song_audio" || action === "etech_song_document"){
@@ -250,6 +271,13 @@ if(body.startsWith("etech_song_") && commands.has("song")){
     }
   }
 }
+if(/^(360P|480P|720P)$/i.test(body) && commands.has("video")){
+  try{
+    m.pushName = pushName;
+    return await commands.get("video").execute(sock,m,[body.toLowerCase()],settings);
+  }catch(e){ console.error("VIDEO BUTTON ERROR:", e.message) }
+}
+
 if(/^(AUDIO|DOCUMENT)$/i.test(body) && commands.has("song")){
   try{
     m.pushName = pushName;
@@ -266,7 +294,7 @@ if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBod
 }
 
 // ===== DUAL PREFIX =====
-const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open"]
+const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open","antibot","antidelete"]
 const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️" }
 const stagedCmds = ["song","play","music","tiktok","fb","video","insta"]
 
