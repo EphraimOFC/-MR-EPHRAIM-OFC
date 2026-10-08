@@ -475,6 +475,15 @@ async function handleMessage(m){
     const menuId = body.slice(-1);
     if(subMenus[menuId]) return sock.sendMessage(m.chat, { text: subMenus[menuId] }, { quoted:m }).catch(()=>{});
   }
+  if(/^1$/.test(body)){
+    const expiresAt = menuReplyUntil.get(m.chat) || 0;
+    if(expiresAt > Date.now()){
+      menuReplyUntil.delete(m.chat);
+      const ownerMenu = commands.get('ownermenu');
+      if(ownerMenu) return runCommand(ownerMenu, m, []);
+    }
+    return;
+  }
   if(/^\d$/.test(body)){
     const expiresAt = menuReplyUntil.get(m.chat) || 0;
     if(expiresAt > Date.now() && subMenus[body]){

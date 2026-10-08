@@ -17,6 +17,7 @@
   "author": "MR EPHRAIM OFC",
   "license": "MIT",
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@whiskeysockets/baileys": "6.7.24",
     "acrcloud": "^1.4.0",
     "axios": "^1.7.2",
