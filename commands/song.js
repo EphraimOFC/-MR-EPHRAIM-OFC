@@ -2,6 +2,7 @@ const yts = require('yt-search')
 const ytdl = require('@distube/ytdl-core')
 const fs = require('fs')
 const path = require('path')
+const { sendInteractive, quickReply } = require('../ui')
 
 global.songCache = global.songCache || {}
 
@@ -108,38 +109,21 @@ try {
 *👤 Author:* ${video.author?.name || "Unknown"}
 *⏱️ Duration:* ${video.timestamp || "Unknown"}
 
-*Tap Button Below ⤵️*
+*Choose Download Format ⤵️*
 
 ${settings.footer}
 `
 
-  await sock.sendMessage(
-    chat,
-    {
-      image: { url: video.thumbnail },
-      caption: txt,
-      footer: settings.footer,
-      buttons: [
-        {
-          buttonId: "audio",
-          buttonText: { displayText: "Audio 🎧" },
-          type: 1
-        },
-        {
-          buttonId: "document",
-          buttonText: { displayText: "Document 📁" },
-          type: 1
-        },
-        {
-          buttonId: "voice",
-          buttonText: { displayText: "Voice 🎙️" },
-          type: 1
-        }
-      ],
-      headerType: 4
-    },
-    { quoted: m }
-  )
+  await sendInteractive(sock, m, {
+    title: "E TECH OFC • SONG",
+    body: txt,
+    image: video.thumbnail,
+    footer: settings.footer,
+    buttons: [
+      quickReply("🎧 AUDIO", "etech_song_audio"),
+      quickReply("📄 DOCUMENT", "etech_song_document")
+    ]
+  })
 
 } catch (err) {
   console.log("SONG SEARCH ERROR:", err)
