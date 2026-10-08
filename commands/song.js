@@ -175,21 +175,31 @@ try {
    * Use the Sasa Dev API for audio downloads.
    * This avoids the YouTube HTTP 429 problem from direct ytdl requests.
    */
-  const { ytMp3 } = require("../lib/sasaApi")
-  const data = await ytMp3(video.url, "128", false)
-  const result = data?.result || data?.data || data
-  const dlUrl =
-    result?.download_url ||
-    result?.downloadUrl ||
-    result?.url ||
-    result?.link ||
-    result?.audio ||
-    result?.audio_url
-
-  if (!dlUrl) throw new Error("Audio download link was not returned by the API")
+  let audioUrl = null
+  let result = {}
+  try {
+    const { ytMp3 } = require("../lib/sasaApi")
+    const data = await ytMp3(video.url, "128", false)
+    result = data?.result || data?.data || data
+    audioUrl = result?.download_url || result?.downloadUrl || result?.url || result?.link || result?.audio || result?.audio_url
+  } catch (apiError) {
+    console.log("SASA MP3 FALLBACK:", apiError?.response?.status || apiError?.message)
+  }
 
   const title = result?.title || video.title || "song"
-  const audioUrl = String(dlUrl)
+  if (!audioUrl) {
+    const ytdl = require("@distube/ytdl-core")
+    const fallbackPath = path.join(tempDir, `${Date.now()}-song.mp3`)
+    const stream = ytdl(video.url, { quality: "highestaudio", filter: "audioonly" })
+    const write = fs.createWriteStream(fallbackPath)
+    stream.pipe(write)
+    await new Promise((resolve, reject) => {
+      write.on("finish", resolve)
+      write.on("error", reject)
+      stream.on("error", reject)
+    })
+    audioUrl = fallbackPath
+  }
 
   const safeTitle = String(title)
     .replace(/[\\/:*?"<>|]/g, "")
@@ -206,7 +216,7 @@ try {
     await sock.sendMessage(
       chat,
       {
-        audio: { url: audioUrl },
+        audio: audioUrl.startsWith("http") ? { url: audioUrl } : { url: audioUrl },
         mimetype: "audio/mpeg",
         fileName
       },
