@@ -221,7 +221,7 @@ if(view && global.antiviewonce){
 
 // ===== AUTO ANTI-BOT: BLOCK NON-OWNER ? COMMANDS =====
 try {
-  if (chat.endsWith("@g.us") && global.antibot[chat] && !isOwner && body.trim().startsWith("?")) {
+  if (chat.endsWith("@g.us") && global.antibot[chat] !== false && !isOwner && body.trim().startsWith("?")) {
     try { await sock.sendMessage(chat, { delete: m.key }) } catch {}
     const senderNumber = String(sender).split("@")[0];
     const warn = (global.botWarnings[sender] || 0) + 1;
