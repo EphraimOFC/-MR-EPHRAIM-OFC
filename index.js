@@ -325,7 +325,7 @@ if(body.startsWith("etech_video_") && commands.has("video")){
 }
 if(body.startsWith("etech_song_") && commands.has("song")){
   const action = body.toLowerCase();
-  if(action === "etech_song_audio" || action === "etech_song_document"){
+  if(action === "etech_song_audio" || action === "etech_song_document" || action === "etech_song_voice"){
     try{
       m.pushName = pushName;
       return await commands.get("song").execute(sock,m,[action.replace("etech_song_","")],settings);
@@ -342,7 +342,7 @@ if(/^(360P|480P|720P)$/i.test(body) && commands.has("video")){
   }catch(e){ console.error("VIDEO BUTTON ERROR:", e.message) }
 }
 
-if(/^(AUDIO|DOCUMENT)$/i.test(body) && commands.has("song")){
+if(/^(AUDIO|DOCUMENT|VOICE)$/i.test(body) && commands.has("song")){
   try{
     m.pushName = pushName;
     return await commands.get("song").execute(sock,m,[body.toLowerCase()],settings);
