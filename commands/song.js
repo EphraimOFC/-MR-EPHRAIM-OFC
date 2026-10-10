@@ -5,82 +5,81 @@ const path = require('path');
 
 module.exports = {
   name: "song",
-  alias: ["play", "music"],
+  alias: ["play","music"],
   async execute(sock, m, args, settings) {
     const chat = m.chat;
+    let query = args.join(" ").trim();
+    
+    // If format specified at end (audio/document/voice)
+    let format = "audio";
+    if (["audio","document","voice"].includes(args[args.length-1]?.toLowerCase())) {
+      format = args[args.length-1].toLowerCase();
+      query = args.slice(0,-1).join(" ").trim();
+    }
+
+    if (!query) return sock.sendMessage(chat, { text: `❌ Provide song name\nExample: .song Calm Down\n\n${settings.footer}` }, { quoted: m });
+
+    // If user replied to previous search with format
+    if (global.songCache && global.songCache[chat] && ["audio","document","voice"].includes(query.toLowerCase())) {
+      format = query.toLowerCase();
+      query = global.songCache[chat].query;
+    }
+
     try {
-      // === STEP 2: DOWNLOAD MODE ===
-      const formatArg = args[0]?.toLowerCase();
-      if (["audio", "document", "voice", "doc"].includes(formatArg)) {
-        const cached = global.songCache[chat];
-        if (!cached) return sock.sendMessage(chat, { text: "❌ No song in cache. First do `.song <name>`\n" + settings.footer }, { quoted: m });
-
-        await sock.sendMessage(chat, { react: { text: "⏳", key: m.key } });
-
-        const info = await ytdl.getInfo(cached.url);
-        const audioFormat = ytdl.chooseFormat(info.formats, { filter: 'audioonly', quality: 'highestaudio' });
-
-        const tmpPath = path.join(__dirname, `../temp_${Date.now()}.mp3`);
-        const stream = ytdl(cached.url, { filter: 'audioonly', quality: 'highestaudio' });
-        const write = fs.createWriteStream(tmpPath);
-        stream.pipe(write);
-
-        await new Promise((res, rej) => {
-          write.on('finish', res);
-          write.on('error', rej);
-        });
-
-        const buffer = fs.readFileSync(tmpPath);
-
-        if (formatArg === "document" || formatArg === "doc") {
-          await sock.sendMessage(chat, { document: buffer, mimetype: "audio/mpeg", fileName: `${cached.title}.mp3` }, { quoted: m });
-        } else if (formatArg === "voice") {
-          await sock.sendMessage(chat, { audio: buffer, mimetype: "audio/mpeg", ptt: true }, { quoted: m });
-        } else {
-          await sock.sendMessage(chat, { audio: buffer, mimetype: "audio/mpeg" }, { quoted: m });
-        }
-
-        fs.unlinkSync(tmpPath);
-        await sock.sendMessage(chat, { react: { text: "✅", key: m.key } });
-        return;
-      }
-
-      // === STEP 1: SEARCH MODE ===
-      if (!args[0]) return sock.sendMessage(chat, { text: `❌ Provide song name\nExample:.song Calm Down\n${settings.footer}` }, { quoted: m });
-
       await sock.sendMessage(chat, { react: { text: "⏳", key: m.key } });
 
-      const query = args.join(" ");
       const search = await yts(query);
+      if (!search.videos.length) throw new Error("No results");
+
       const video = search.videos[0];
-      if (!video) {
-        await sock.sendMessage(chat, { react: { text: "❌", key: m.key } });
-        return sock.sendMessage(chat, { text: `❌ Not found: ${query}` }, { quoted: m });
-      }
+      const url = video.url;
 
-      // SAVE TO CACHE FOR DOWNLOAD
-      global.songCache[chat] = { url: video.url, title: video.title, videoId: video.videoId };
+      // Cache for buttons
+      global.songCache[chat] = { query: query, url: url, title: video.title };
 
-      let caption = `*🎧⃝⃘̉̉̉━⋆─⋆──❂*\n*┊ ┊ ┊ ┊ ┊*\n*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*\n*┊ ☠︎︎*\n*✧ ${video.title}𓂃✍︎𝄞*\n*╰────────────────❂*\n*┏━━━━━━━━━━━❥❥❥*\n*┃* \`𝗦𝗢𝗡𝗚 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥\`\n*┗━━━━━━━━━━━❥❥❥*\n\n*📌 Title :-* ${video.title}\n*👤 Author :-* ${video.author.name}\n*👁️ Views :-* ${video.views.toLocaleString()}\n*⏳ Ago :-* ${video.ago}\n*⏱️ Duration :-* ${video.timestamp}\n\n*┏━「 𝗖𝗛𝗢𝗢𝗦𝗘 𝗙𝗢𝗥𝗠𝗔𝗧 ⤵️ 」*\n*┗━━━━━━━━━━❥❥❥*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`;
+      // Create temp folder
+      if (!fs.existsSync('./temp')) fs.mkdirSync('./temp');
+      let filePath = path.join('./temp', `${Date.now()}.mp3`);
 
-      // FIXED BUTTONS - id matches your index.js handler
-      await sock.sendMessage(chat, {
-        image: { url: video.thumbnail },
-        caption: caption,
-        footer: settings.footer,
-        buttons: [
-          { buttonId: "etech_song_audio", buttonText: { displayText: "🎧 AUDIO" }, type: 1 },
-          { buttonId: "etech_song_document", buttonText: { displayText: "📄 DOCUMENT" }, type: 1 }
-        ],
-        headerType: 4
-      }, { quoted: m });
+      // Download with @distube/ytdl-core
+      const stream = ytdl(url, { 
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
+      });
+
+      const writeStream = fs.createWriteStream(filePath);
+      await new Promise((resolve, reject) => {
+        stream.pipe(writeStream);
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+        stream.on('error', reject);
+      });
 
       await sock.sendMessage(chat, { react: { text: "✅", key: m.key } });
+
+      const caption = `*🎵 ${video.title}*\n*⏱️ ${video.timestamp}*\n*👁️ ${video.views}*\n*📅 ${video.ago}*\n\n*<\> ${settings.footer}*`;
+
+      if (format === "document") {
+        await sock.sendMessage(chat, { document: fs.readFileSync(filePath), mimetype: 'audio/mpeg', fileName: `${video.title}.mp3`, caption: caption }, { quoted: m });
+      } else if (format === "voice") {
+        await sock.sendMessage(chat, { audio: fs.readFileSync(filePath), mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+      } else {
+        await sock.sendMessage(chat, { audio: fs.readFileSync(filePath), mimetype: 'audio/mpeg' }, { quoted: m });
+        await sock.sendMessage(chat, { text: caption }, { quoted: m });
+      }
+
+      fs.unlinkSync(filePath);
+
+      // Send buttons for next time
+      await sock.sendMessage(chat, { 
+        text: `*Reply with format:*\n\n1️⃣ AUDIO\n2️⃣ DOCUMENT\n3️⃣ VOICE\n\n*<\> ${settings.footer}*`
+      }, { quoted: m });
 
     } catch (e) {
       console.error("SONG ERROR:", e);
       await sock.sendMessage(chat, { react: { text: "❌", key: m.key } });
-      await sock.sendMessage(chat, { text: `❌ Song Error: ${e.message}\n${settings.footer}` }, { quoted: m });
+      return sock.sendMessage(chat, { text: `❌ Error: ${e.message}\n\nTry another song or check if youtube is blocked on server.\n\n*<\> ${settings.footer}*` }, { quoted: m });
     }
   }
 };
