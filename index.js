@@ -18,6 +18,10 @@ global.creact = true;
 global.aliveReply = global.aliveReply || {};
 global.settingsReply = global.settingsReply || {};
 global.menuReply = global.menuReply || {};
+global.openReply = global.openReply || {};
+global.closeReply = global.closeReply || {};
+global.openTimed = global.openTimed || {};
+global.closeTimed = global.closeTimed || {};
 global.songCache = global.songCache || {};
 global.videoCache = global.videoCache || {};
 global.viewOnceCache = global.viewOnceCache || new Map();
@@ -108,7 +112,6 @@ sock.ev.on('connection.update', async (u)=>{
   }
 });
 
-// === FIXED BUTTON PARSER - 100% WORKING ===
 function extractInteractiveId(message){
   if(!message || typeof message!== "object") return "";
   let direct = message.buttonsResponseMessage?.selectedButtonId || message.templateButtonReplyMessage?.selectedId || message.listResponseMessage?.singleSelectReply?.selectedRowId;
@@ -168,7 +171,7 @@ const unwrapMessage = (msg) => { if(!msg || typeof msg!== "object") return {}; f
 const msg = unwrapMessage(m.message);
 try { const protocol = msg?.protocolMessage; if (protocol?.type === 0 && protocol?.key?.id) { await handleDeletedMessage(protocol.key, m.key); continue; } } catch (e) {}
 
-// FIXED BODY - buttons first
+// FIXED BODY
 let interactiveId = extractInteractiveId(m.message) || "";
 let body = interactiveId || msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || "";
 let pushName = m.pushName || "User"
@@ -285,7 +288,23 @@ if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m }); }
 }
 
-// === SONG & VIDEO BUTTON HANDLER - FIXED ===
+// === OPEN/CLOSE REPLY HANDLER - NEW ===
+if(global.openReply && global.openReply[chat] && ["1","2"].includes(cleanBody)){
+  delete global.openReply[chat];
+  body = `?open ${cleanBody}`
+}
+if(global.closeReply && global.closeReply[chat] && ["1","2"].includes(cleanBody)){
+  delete global.closeReply[chat];
+  body = `?close ${cleanBody}`
+}
+if(global.openTimed && global.openTimed[chat]){
+  body = `?open ${cleanBody}`
+}
+if(global.closeTimed && global.closeTimed[chat]){
+  body = `?close ${cleanBody}`
+}
+
+// === SONG & VIDEO BUTTON HANDLER ===
 if(body.startsWith("etech_video_") && commands.has("video")){
   const quality = body.toLowerCase().replace("etech_video_", "");
   if(["360","480","720"].includes(quality)){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[quality + "p"],settings); }catch(e){ console.log(e) } }
@@ -305,8 +324,9 @@ if(body.startsWith("etech_song_") && commands.has("song")){
 if(/^(360P|480P|720P)$/i.test(body) && commands.has("video")){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[body.toLowerCase()],settings); }catch(e){} }
 if(/^(AUDIO|DOCUMENT|VOICE)$/i.test(body) && commands.has("song")){ try{ m.pushName = pushName; return await commands.get("song").execute(sock,m,[body.toLowerCase()],settings); }catch(e){} }
 if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){ body = `?settings ${cleanBody}` }
+
 const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open","antibot","antidelete"]
-const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️" }
+const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️", open:"🔓", close:"🔒" }
 const stagedCmds = ["song","play","music","tiktok","fb","video","insta"]
 let usedPrefix=null
 if(body.startsWith("?")) usedPrefix="?"
