@@ -1,33 +1,37 @@
+const fs = require('fs')
 module.exports = {
   name: "top",
   async execute(sock, m, args, settings) {
     let chat = m.chat
     if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: "Group only" })
 
-    try{
-      let metadata = await sock.groupMetadata(chat)
-      let groupName = metadata.subject
-      let player = m.pushName || "User"
+    let path = './database/activity.json'
+    if(!fs.existsSync(path)) return sock.sendMessage(chat, { text: `*MONEY HEIST*\n\nℹ️ Activity tracking is OFF in this group.\nAn admin can start it:?activity on\n\n*<\> ${settings.footer}*` })
 
-      // Check if activity is ON - change this to your DB
-      // Example: let isActivityOn = db.groups[chat]?.activity || false
-      let isActivityOn = false // set to true if you have it enabled
+    let db = JSON.parse(fs.readFileSync(path))
+    if(!db[chat] ||!db[chat].enabled){
+      return sock.sendMessage(chat, { text: `*MONEY HEIST*\n\nℹ️ Activity tracking is OFF in this group.\nAn admin can start it:?activity on\n\n*<\> ${settings.footer}*` })
+    }
 
-      let footer = settings.footer
+    let users = db[chat].users
+    let sorted = Object.entries(users).sort((a,b) => b[1]-a[1]).slice(0, 10)
 
-      if(!isActivityOn){
-        let txt = `*MONEY HEIST*
-*${groupName}*
+    if(sorted.length === 0){
+      return sock.sendMessage(chat, { text: `*MONEY HEIST*\n\nNo activity yet.\n\n*<\> ${settings.footer}*` })
+    }
 
-ℹ️ Activity tracking is OFF in this group.
-An admin can start it:?activity on
+    let metadata = await sock.groupMetadata(chat)
+    let groupName = metadata.subject
+    let player = m.pushName || "User"
 
-*<\> ${footer}*`
-        return await sock.sendMessage(chat, { text: txt })
-      }
+    let list = sorted.map((v,i) => {
+      let num = v[0].split('@')[0]
+      return `*${i+1}.* @${num} - ${v[1]} msgs`
+    }).join('\n')
 
-      // If ON - example top list
-      let txtOn = `*🛡️⃝⃘̉̉̉━⋆─⋆──❂*
+    let mentions = sorted.map(v => v[0])
+
+    let txt = `*🛡️⃝⃘̉̉̉━⋆─⋆──❂*
 *✧ ${player.toUpperCase()}𓂃✍︎𝄞*
 *╰────────────────❂*
 *┃* \`TOP ACTIVE MEMBERS\`
@@ -35,15 +39,10 @@ An admin can start it:?activity on
 
 *✨ Group :-* ${groupName}
 
-*🏆 Top 10:*
-1. @user1 - 500 msgs
-2. @user2 - 320 msgs
+${list}
 
-*<\> ${footer}*`
-      await sock.sendMessage(chat, { text: txtOn })
+*<\> ${settings.footer}*`
 
-    }catch(e){
-      await sock.sendMessage(chat, { text: "Error: " + e.message })
-    }
+    await sock.sendMessage(chat, { text: txt, mentions: mentions })
   }
 }
