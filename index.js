@@ -29,9 +29,9 @@ global.antibot = global.antibot || {};
 global.botWarnings = global.botWarnings || {};
 global.antiDelete = true;
 global.messageCache = global.messageCache || new Map();
-// === ANTI-INBOX GLOBALS ADDED ===
 global.antiInboxMode = global.antiInboxMode || false;
 global.antiInboxGroups = global.antiInboxGroups || [];
+global.antiInboxBlocked = global.antiInboxBlocked || [];
 global.__botStarting = global.__botStarting || false;
 global.__botReconnectTimer = global.__botReconnectTimer || null;
 
@@ -73,22 +73,24 @@ async function handleDeletedMessage(key, deletedByKey = null) {
   try {
     const ownerJid = getOwnerJid();
     const sender = cached.key?.participant || cached.key?.remoteJid || 'unknown';
-    const deletedBy = deletedByKey?.participant || deletedByKey?.remoteJid || 'unknown';
-    const senderName = String(cached.pushName || 'Unknown').replace(/[\r\n]/g, ' ').trim() || 'Unknown';
-    const deletedByName = String(deletedByKey?.pushName || (deletedBy === sender? senderName : 'Unknown')).replace(/[\r\n]/g, ' ').trim() || 'Unknown';
-    const deleteDesign = `┏━━━━━━━━━━━━━━━━━\n┃ 🗑️ *MESSAGE DELETED*\n┗━━━━━━━━━━━━━━━━━\n*🤦‍♂️ Sender :* _${senderName}_\n*🌬️ Delete By :* _${deletedByName}_\n━━━━━━━━━━━━━━━━━━\n${settings.footer}`;
+    const senderNum = String(sender).split('@')[0];
     const unwrap = (msg) => { if (!msg || typeof msg!== 'object') return {}; for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']) { if (msg[wrapper]?.message) return unwrap(msg[wrapper].message); } return msg; };
     const original = unwrap(cached.message);
-    const originalText = original.conversation || original.extendedTextMessage?.text;
-    if (originalText) {
-      await sock.sendMessage(ownerJid, { text: `${deleteDesign}\n\n*Message :* ${originalText}`, mentions: sender.includes('@')? [sender] : [] });
+    const originalText = original.conversation || original.extendedTextMessage?.text || original.imageMessage?.caption || original.videoMessage?.caption || "";
+
+    // === YOUR REQUESTED DESIGN ===
+    const designText = originalText? originalText.slice(0, 1000) : "_Media Deleted_";
+    const deleteDesign = `*♻️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗗𝗘𝗟𝗘𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n👤 *Sender:* +${senderNum}\n💬 ${designText}\n\n*<\> ${settings.footer}*\n*© 𝚛𝚀𝚞𝚎𝚎𝚗 𝙿𝚛𝚘*\n ̶ ̶ ̶ ̶ ̶ ̶`;
+
+    if (original.conversation || original.extendedTextMessage || originalText) {
+      await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
     } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
       const media = await downloadMediaMessage(cached, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
       if (original.imageMessage) await sock.sendMessage(ownerJid, { image: media, caption: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
       else if (original.videoMessage) await sock.sendMessage(ownerJid, { video: media, caption: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
-      else if (original.audioMessage) { await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || 'audio/mpeg', ptt:!!original.audioMessage.ptt }); await sock.sendMessage(ownerJid, { text: deleteDesign }); }
+      else if (original.audioMessage) { await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || 'audio/mpeg', ptt:!!original.audioMessage.ptt }); await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] }); }
       else if (original.documentMessage) await sock.sendMessage(ownerJid, { document: media, mimetype: original.documentMessage.mimetype || 'application/octet-stream', fileName: original.documentMessage.fileName || 'deleted-file', caption: deleteDesign });
-      else if (original.stickerMessage) { await sock.sendMessage(ownerJid, { sticker: media }); await sock.sendMessage(ownerJid, { text: deleteDesign }); }
+      else if (original.stickerMessage) { await sock.sendMessage(ownerJid, { sticker: media }); await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] }); }
     }
   } catch (e) { console.error('ANTI-DELETE ERROR:', e.message); }
   finally { global.messageCache.delete(cacheKey); }
@@ -151,12 +153,12 @@ let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRea
 if(m.key.fromMe &&!isOwner) return;
 m.chat=chat;
 
-// ===== ANTI-INBOX KICKER - ADDED =====
+// ===== ANTI-INBOX KICK + BLOCK =====
 try {
   const isPrivate =!m.chat.endsWith("@g.us");
   if (global.antiInboxMode && isPrivate &&!m.key.fromMe &&!isOwner) {
     const spammer = m.key.participant || m.key.remoteJid;
-    await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI-INBOX ACTIVE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Servers are DOWN.\n*┃* Do NOT DM admin/bot.\n*┃* You will be kicked.\n*┃*\n*┗━「 ${settings.footer} 」*` });
+    await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI-INBOX ACTIVE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Servers are DOWN.\n*┃* You will be KICKED + BLOCKED.\n*┃*\n*┗━「 ${settings.footer} 」*` });
     if (global.antiInboxGroups && global.antiInboxGroups.length) {
       for (let g of global.antiInboxGroups) {
         try {
@@ -166,11 +168,15 @@ try {
           const isUserInGroup = meta.participants.find(p => p.id === spammer);
           if (isBotAdmin && isUserInGroup) {
             await sock.groupParticipantsUpdate(g, [spammer], 'remove');
-            await sock.sendMessage(g, { text: `*🚫⃝⃘̉̉̉━⋆─❂*\n*┃* \`@ ${spammer.split('@')[0]} KICKED\`\n*┛━━━━━━━━━━❂*\n\n*Reason:* DM'd admin/bot during downtime\n\n*<\> ${settings.footer}*`, mentions: [spammer] });
+            await sock.sendMessage(g, { text: `*🚫⃝⃘̉̉̉━⋆─❂*\n*┃* \`@${spammer.split('@')[0]} KICKED & BLOCKED\`\n*┛━━━━━━━━━━❂*\n\n*Reason:* DM'd during downtime\n\n*<\> ${settings.footer}*`, mentions: [spammer] });
           }
-        } catch(e){ console.log("Kick fail", e.message) }
+        } catch(e){}
       }
     }
+    try {
+      await sock.updateBlockStatus(spammer, "block");
+      if (!global.antiInboxBlocked.includes(spammer)) global.antiInboxBlocked.push(spammer);
+    } catch(e){}
     continue;
   }
 } catch(e){ console.log("Anti-inbox error", e.message) }
@@ -316,7 +322,6 @@ if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m }); }
 }
 
-// === OPEN/CLOSE REPLY HANDLER ===
 if(global.openReply && global.openReply[chat] && ["1","2"].includes(cleanBody)){
   delete global.openReply[chat];
   body = `?open ${cleanBody}`
@@ -332,7 +337,6 @@ if(global.closeTimed && global.closeTimed[chat]){
   body = `?close ${cleanBody}`
 }
 
-// === SONG & VIDEO BUTTON HANDLER ===
 if(body.startsWith("etech_video_") && commands.has("video")){
   const quality = body.toLowerCase().replace("etech_video_", "");
   if(["360","480","720"].includes(quality)){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[quality + "p"],settings); }catch(e){ console.log(e) } }
