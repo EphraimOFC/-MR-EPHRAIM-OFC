@@ -1,22 +1,24 @@
 module.exports = {
 name: "open",
-async execute(sock, m, args, settings) {
-  let chat = m.chat
-  if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: `❌ Group only\n${settings.footer}` }, { quoted: m })
+execute: async (m, { reply }) => {
+let MY_FOOTER = `👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
+> *© Powered by E TECH OFC™*`;
 
-  try{
-    await sock.groupSettingUpdate(chat, 'not_announcement')
-    let txt = `*👁️⃝⃘̉̉̉━⋆─⋆──❂*
-*┃* \`𝗚𝗥𝗢𝗨𝗣 𝗦𝗧𝗔𝗧𝗨𝗦\`
+let text = `*⏳⃝⃘̉̉̉━⋆─⋆──❂*
+*┃* \`𝗙𝗢𝗥 𝗛𝗢𝗪 𝗟𝗢𝗡𝗚?\`
 *┗━━━━━━━━━━━━━❂*
 
-*✅ Status:* OPENED (everyone can message)
-*👤 Action by:* ${m.pushName || "Admin"}
+*OPENED (everyone can message)*
 
-${settings.footer}`
-    await sock.sendMessage(chat, { text: txt }, { quoted: m })
-  }catch(e){
-    await sock.sendMessage(chat, { text: `❌ Bot not admin\n${settings.footer}` }, { quoted: m })
-  }
+*Reply with a number:*
+
+*┏━「 𝚁𝚎𝙿𝙻𝚈 𝙽𝚄𝙼𝙱𝚎𝚁  ⤵️ 」*
+*┃* 1️⃣ \`Until I change it back\`
+*┃* 2️⃣ \`For a while, then undo automatically\`
+*┗━━━━━━━━━━❥❥❥*
+
+*<\> ${MY_FOOTER}*`;
+
+await reply(text);
 }
 }
