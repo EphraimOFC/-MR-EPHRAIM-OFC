@@ -1,10 +1,10 @@
 module.exports = {
-name: "open",
-execute: async (m, { reply }) => {
-let MY_FOOTER = `👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*
-> *© Powered by E TECH OFC™*`;
-
-let text = `*⏳⃝⃘̉̉̉━⋆─⋆──❂*
+  name: "open",
+  async execute(sock, m, args, settings) {
+    let chat = m.chat
+    if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: "Group only" })
+    try{
+      let txt = `*⏳⃝⃘̉̉̉━⋆─⋆──❂*
 *┃* \`𝗙𝗢𝗥 𝗛𝗢𝗪 𝗟𝗢𝗡𝗚?\`
 *┗━━━━━━━━━━━━━❂*
 
@@ -17,8 +17,10 @@ let text = `*⏳⃝⃘̉̉̉━⋆─⋆──❂*
 *┃* 2️⃣ \`For a while, then undo automatically\`
 *┗━━━━━━━━━━❥❥❥*
 
-*<\> ${MY_FOOTER}*`;
-
-await reply(text);
-}
+*<\> ${settings.footer}*`
+      await sock.sendMessage(chat, { text: txt })
+    }catch(e){
+      await sock.sendMessage(chat, { text: "Error: " + e.message })
+    }
+  }
 }
