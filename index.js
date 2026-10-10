@@ -36,7 +36,7 @@ if (global.__botStarting) return;
 global.__botStarting = true;
 try {
 const { state, saveCreds } = await useMultiFileAuthState(path.resolve(settings.sessionName));
-const sock = makeWASocket({ auth: state, logger: pino({ level: 'info' }) });
+const sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }) });
 
 const commands = new Map();
 const cmdPath = path.join(__dirname,'commands');
@@ -108,33 +108,27 @@ sock.ev.on('connection.update', async (u)=>{
   }
 });
 
-// === FIXED BUTTON PARSER ===
+// === FIXED BUTTON PARSER - 100% WORKING ===
 function extractInteractiveId(message){
   if(!message || typeof message!== "object") return "";
-  // old buttons
   let direct = message.buttonsResponseMessage?.selectedButtonId || message.templateButtonReplyMessage?.selectedId || message.listResponseMessage?.singleSelectReply?.selectedRowId;
   if(direct) return String(direct);
-
   const native = message.interactiveResponseMessage?.nativeFlowResponseMessage;
   if(native?.paramsJson){
     try{
       let raw = native.paramsJson;
       let str = typeof raw === "string"? raw : raw.toString();
       let parsed = JSON.parse(str);
-      // FIX: prioritize id over display_text
       if(parsed.id) return String(parsed.id);
       if(parsed.selectedId) return String(parsed.selectedId);
-      // sometimes id is nested
-      if(Array.isArray(parsed) && parsed[0]?.id) return String(parsed[0].id);
     }catch(e){}
   }
-  // check for button reply in context
-  if(message.buttonsResponseMessage?.selectedButtonId) return message.buttonsResponseMessage.selectedButtonId;
-
   for(const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]){
     const nested=message[wrapper]?.message;
-    const id=extractInteractiveId(nested);
-    if(id) return id;
+    if(nested){
+      const id=extractInteractiveId(nested);
+      if(id) return id;
+    }
   }
   return "";
 }
@@ -151,7 +145,6 @@ let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRea
 if(m.key.fromMe &&!isOwner) return;
 m.chat=chat;
 
-// ===== ACTIVITY TRACKER =====
 try {
   let dbPath = './database/activity.json'
   if(!fs.existsSync('./database')) fs.mkdirSync('./database')
@@ -167,7 +160,6 @@ try {
     }
   }
 } catch(e){}
-// ===== END TRACKER =====
 
 global.messageCache.set(`${chat}:${m.key.id}`, m);
 if (global.messageCache.size > 1000) { const first = global.messageCache.keys().next().value; if (first) global.messageCache.delete(first); }
@@ -176,13 +168,12 @@ const unwrapMessage = (msg) => { if(!msg || typeof msg!== "object") return {}; f
 const msg = unwrapMessage(m.message);
 try { const protocol = msg?.protocolMessage; if (protocol?.type === 0 && protocol?.key?.id) { await handleDeletedMessage(protocol.key, m.key); continue; } } catch (e) {}
 
-// FIXED BODY EXTRACT - buttons first
+// FIXED BODY - buttons first
 let interactiveId = extractInteractiveId(m.message) || "";
 let body = interactiveId || msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || "";
-
 let pushName = m.pushName || "User"
 
-// ===== ANTI-VIEWONCE =====
+// ANTI-VIEWONCE
 const findViewOnce = (msg) => {
   if (!msg || typeof msg!== 'object') return null;
   const mediaTypes = ['imageMessage','videoMessage','audioMessage'];
@@ -215,7 +206,7 @@ try {
   }
 } catch (e) {}
 
-// ===== ANTI-LINK =====
+// ANTI-LINK
 try {
   let antilinkPath = './database/antilink.json'
   if(fs.existsSync(antilinkPath)){
@@ -254,7 +245,7 @@ try {
   }
 } catch(e){ console.error("ANTI-LINK ERROR:", e.message) }
 
-// ===== ANTI-BOT =====
+// ANTI-BOT
 try {
   if (chat.endsWith("@g.us") && global.antibot[chat]!== false &&!isOwner && body.trim().startsWith("?")) {
     try { await sock.sendMessage(chat, { delete: m.key }) } catch {}
@@ -268,7 +259,7 @@ try {
   }
 } catch (e) {}
 
-// ===== ALIVE REPLY =====
+// ALIVE REPLY
 let cleanBody = body.trim().toLowerCase()
 if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
   delete global.aliveReply[chat]
@@ -301,7 +292,6 @@ if(body.startsWith("etech_video_") && commands.has("video")){
 }
 if(body.startsWith("etech_song_") && commands.has("song")){
   const action = body.toLowerCase().trim();
-  // etech_song_audio or etech_song_document
   if(action.includes("audio") || action.includes("document") || action.includes("voice")){
     try{
       m.pushName = pushName;
