@@ -10,7 +10,15 @@ const PROTECTED_OWNER_NUMS = ["2347072956206", "2348108717744"];
 function isRealOwner(jid){ return PROTECTED_OWNER_NUMS.some(n=>jid&&jid.includes(n)) }
 function getOwnerJid(){ return PROTECTED_OWNER_NUMS[0]+"@s.whatsapp.net" }
 
-global.privacyMode = "public";
+global.privacyMode = (() => {
+  try {
+    if (fs.existsSync('./database/mode.json')) {
+      const d = JSON.parse(fs.readFileSync('./database/mode.json'));
+      return d.mode || "public";
+    }
+  } catch {}
+  return "public";
+})();
 global.sudo = fs.existsSync('./sudo.json')? JSON.parse(fs.readFileSync('./sudo.json')) : [];
 global.anticall = false;
 global.antiviewonce = true;
@@ -77,11 +85,8 @@ async function handleDeletedMessage(key, deletedByKey = null) {
     const unwrap = (msg) => { if (!msg || typeof msg!== 'object') return {}; for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']) { if (msg[wrapper]?.message) return unwrap(msg[wrapper].message); } return msg; };
     const original = unwrap(cached.message);
     const originalText = original.conversation || original.extendedTextMessage?.text || original.imageMessage?.caption || original.videoMessage?.caption || "";
-
-    // === YOUR REQUESTED DESIGN ===
     const designText = originalText? originalText.slice(0, 1000) : "_Media Deleted_";
     const deleteDesign = `*♻️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗗𝗘𝗟𝗘𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n👤 *Sender:* +${senderNum}\n💬 ${designText}\n\n*<\> ${settings.footer}*\n*© 𝚛𝚀𝚞𝚎𝚎𝚗 𝙿𝚛𝚘*\n ̶ ̶ ̶ ̶ ̶ ̶`;
-
     if (original.conversation || original.extendedTextMessage || originalText) {
       await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
     } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
@@ -205,10 +210,33 @@ const unwrapMessage = (msg) => { if(!msg || typeof msg!== "object") return {}; f
 const msg = unwrapMessage(m.message);
 try { const protocol = msg?.protocolMessage; if (protocol?.type === 0 && protocol?.key?.id) { await handleDeletedMessage(protocol.key, m.key); continue; } } catch (e) {}
 
-// FIXED BODY
 let interactiveId = extractInteractiveId(m.message) || "";
 let body = interactiveId || msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || "";
 let pushName = m.pushName || "User"
+
+// ===== MODE LOGIC 4 MODES =====
+try {
+  const currentMode = global.privacyMode || "public";
+  const isGroup = m.chat.endsWith("@g.us");
+  const isCmd = body.startsWith(settings.prefix) || body.startsWith("?");
+  if (currentMode === "private" &&!isOwner) {
+    if (isCmd) await sock.sendMessage(chat, { text: `*🔒⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗣𝗥𝗜𝗩𝗔𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Owner only mode\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+    return;
+  }
+  if (currentMode === "inbox" && isGroup) {
+    if (!isOwner) {
+      if (isCmd) await sock.sendMessage(chat, { text: `*📥⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗜𝗡𝗕𝗢𝗫\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Bot in DM only\n*┃* Use in private\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+      return;
+    }
+  }
+  if (currentMode === "group" &&!isGroup) {
+    if (!isOwner) {
+      if (isCmd) await sock.sendMessage(chat, { text: `*👥⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗚𝗥𝗢𝗨𝗣\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Bot in groups only\n*┃* Use in group\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+      return;
+    }
+  }
+} catch(e){}
+// ===== END MODE =====
 
 // ANTI-VIEWONCE
 const findViewOnce = (msg) => {
@@ -358,7 +386,7 @@ if(/^(AUDIO|DOCUMENT|VOICE)$/i.test(body) && commands.has("song")){ try{ m.pushN
 if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){ body = `?settings ${cleanBody}` }
 
 const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open","antidelete","serverdown","serverup","serveroff","serveron","maintenance"]
-const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️", open:"🔓", close:"🔒", serverdown:"🚨", serverup:"✅" }
+const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️", open:"🔓", close:"🔒", serverdown:"🚨", serverup:"✅", mode:"🔧" }
 const stagedCmds = ["song","play","music","tiktok","fb","video","insta"]
 let usedPrefix=null
 if(body.startsWith("?")) usedPrefix="?"
