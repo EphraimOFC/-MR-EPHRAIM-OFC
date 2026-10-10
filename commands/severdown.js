@@ -6,8 +6,16 @@ module.exports = {
     if (!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: `❌ Group only\n${settings.footer}` }, { quoted: m });
 
     const groupMetadata = await sock.groupMetadata(chat);
-    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-    const botAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+    // Match the bot against WhatsApp's possible device/LID participant IDs.
+    const normalizeJid = (jid) => String(jid || "").replace(/:\\d+(?=@)/, "");
+    const botIds = [sock.user?.id, sock.user?.lid].filter(Boolean).map(normalizeJid);
+    const botPhone = String(sock.user?.id || "").split("@")[0].split(":")[0];
+    const botParticipant = groupMetadata.participants.find((p) => {
+      const participantIds = [p.id, p.lid].filter(Boolean).map(normalizeJid);
+      return participantIds.some((id) => botIds.includes(id)) ||
+        participantIds.some((id) => id.split("@")[0].split(":")[0] === botPhone);
+    });
+    const botAdmin = botParticipant?.admin === "admin" || botParticipant?.admin === "superadmin";
     if (!botAdmin) return sock.sendMessage(chat, { text: `❌ Bot must be admin\n${settings.footer}` }, { quoted: m });
 
     global.antiInboxMode = true;
