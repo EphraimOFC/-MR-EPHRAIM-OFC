@@ -29,6 +29,9 @@ global.antibot = global.antibot || {};
 global.botWarnings = global.botWarnings || {};
 global.antiDelete = true;
 global.messageCache = global.messageCache || new Map();
+// === ANTI-INBOX GLOBALS ADDED ===
+global.antiInboxMode = global.antiInboxMode || false;
+global.antiInboxGroups = global.antiInboxGroups || [];
 global.__botStarting = global.__botStarting || false;
 global.__botReconnectTimer = global.__botReconnectTimer || null;
 
@@ -147,6 +150,31 @@ let senderAlt=m.key.participantAlt||m.key.remoteJidAlt||"";
 let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRealOwner(chat)||global.sudo?.includes(sender)||global.sudo?.includes(senderAlt);
 if(m.key.fromMe &&!isOwner) return;
 m.chat=chat;
+
+// ===== ANTI-INBOX KICKER - ADDED =====
+try {
+  const isPrivate =!m.chat.endsWith("@g.us");
+  if (global.antiInboxMode && isPrivate &&!m.key.fromMe &&!isOwner) {
+    const spammer = m.key.participant || m.key.remoteJid;
+    await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI-INBOX ACTIVE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Servers are DOWN.\n*┃* Do NOT DM admin/bot.\n*┃* You will be kicked.\n*┃*\n*┗━「 ${settings.footer} 」*` });
+    if (global.antiInboxGroups && global.antiInboxGroups.length) {
+      for (let g of global.antiInboxGroups) {
+        try {
+          const meta = await sock.groupMetadata(g);
+          const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+          const isBotAdmin = meta.participants.find(p => p.id === botId)?.admin;
+          const isUserInGroup = meta.participants.find(p => p.id === spammer);
+          if (isBotAdmin && isUserInGroup) {
+            await sock.groupParticipantsUpdate(g, [spammer], 'remove');
+            await sock.sendMessage(g, { text: `*🚫⃝⃘̉̉̉━⋆─❂*\n*┃* \`@ ${spammer.split('@')[0]} KICKED\`\n*┛━━━━━━━━━━❂*\n\n*Reason:* DM'd admin/bot during downtime\n\n*<\> ${settings.footer}*`, mentions: [spammer] });
+          }
+        } catch(e){ console.log("Kick fail", e.message) }
+      }
+    }
+    continue;
+  }
+} catch(e){ console.log("Anti-inbox error", e.message) }
+// ===== END ANTI-INBOX =====
 
 try {
   let dbPath = './database/activity.json'
@@ -288,7 +316,7 @@ if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m }); }
 }
 
-// === OPEN/CLOSE REPLY HANDLER - NEW ===
+// === OPEN/CLOSE REPLY HANDLER ===
 if(global.openReply && global.openReply[chat] && ["1","2"].includes(cleanBody)){
   delete global.openReply[chat];
   body = `?open ${cleanBody}`
@@ -325,8 +353,8 @@ if(/^(360P|480P|720P)$/i.test(body) && commands.has("video")){ try{ m.pushName =
 if(/^(AUDIO|DOCUMENT|VOICE)$/i.test(body) && commands.has("song")){ try{ m.pushName = pushName; return await commands.get("song").execute(sock,m,[body.toLowerCase()],settings); }catch(e){} }
 if(global.settingsReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){ body = `?settings ${cleanBody}` }
 
-const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open","antibot","antidelete"]
-const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️", open:"🔓", close:"🔒" }
+const ownerOnlyCmds = ["settings","setting","mode","ban","unban","setsudo","delsudo","restart","anticall","antiviewonce","creact","close","open","antidelete","serverdown","serverup","serveroff","serveron","maintenance"]
+const reactMap = { menu:"📜", ping:"🏓", alive:"🌎", settings:"⚙️", setting:"⚙️", open:"🔓", close:"🔒", serverdown:"🚨", serverup:"✅" }
 const stagedCmds = ["song","play","music","tiktok","fb","video","insta"]
 let usedPrefix=null
 if(body.startsWith("?")) usedPrefix="?"
