@@ -108,21 +108,34 @@ sock.ev.on('connection.update', async (u)=>{
   }
 });
 
+// === FIXED BUTTON PARSER ===
 function extractInteractiveId(message){
   if(!message || typeof message!== "object") return "";
-  const direct = message.buttonsResponseMessage?.selectedButtonId || message.templateButtonReplyMessage?.selectedId || message.listResponseMessage?.singleSelectReply?.selectedRowId;
+  // old buttons
+  let direct = message.buttonsResponseMessage?.selectedButtonId || message.templateButtonReplyMessage?.selectedId || message.listResponseMessage?.singleSelectReply?.selectedRowId;
   if(direct) return String(direct);
+
   const native = message.interactiveResponseMessage?.nativeFlowResponseMessage;
-  if(native){
+  if(native?.paramsJson){
     try{
-      const raw = native.paramsJson;
-      const json = typeof raw === "string"? raw : Buffer.isBuffer(raw)? raw.toString("utf8") : raw && typeof raw === "object"? JSON.stringify(raw) : String(raw || "");
-      const parsed = JSON.parse(json || "{}");
-      const id = parsed.id || parsed.selectedId || parsed.selected_id || parsed.button_id || parsed.buttonId || parsed.display_text || parsed.displayText;
-      if(id) return String(id);
-    }catch{}
+      let raw = native.paramsJson;
+      let str = typeof raw === "string"? raw : raw.toString();
+      let parsed = JSON.parse(str);
+      // FIX: prioritize id over display_text
+      if(parsed.id) return String(parsed.id);
+      if(parsed.selectedId) return String(parsed.selectedId);
+      // sometimes id is nested
+      if(Array.isArray(parsed) && parsed[0]?.id) return String(parsed[0].id);
+    }catch(e){}
   }
-  for(const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]){ const nested=message[wrapper]?.message; const id=extractInteractiveId(nested); if(id) return id; }
+  // check for button reply in context
+  if(message.buttonsResponseMessage?.selectedButtonId) return message.buttonsResponseMessage.selectedButtonId;
+
+  for(const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]){
+    const nested=message[wrapper]?.message;
+    const id=extractInteractiveId(nested);
+    if(id) return id;
+  }
   return "";
 }
 
@@ -138,7 +151,7 @@ let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRea
 if(m.key.fromMe &&!isOwner) return;
 m.chat=chat;
 
-// ===== ACTIVITY TRACKER FOR?top =====
+// ===== ACTIVITY TRACKER =====
 try {
   let dbPath = './database/activity.json'
   if(!fs.existsSync('./database')) fs.mkdirSync('./database')
@@ -162,7 +175,11 @@ if (global.messageCache.size > 1000) { const first = global.messageCache.keys().
 const unwrapMessage = (msg) => { if(!msg || typeof msg!== "object") return {}; for(const wrapper of ["ephemeralMessage","viewOnceMessage","viewOnceMessageV2","viewOnceMessageV2Extension","documentWithCaptionMessage"]){ if(msg[wrapper]?.message) return unwrapMessage(msg[wrapper].message); } return msg; };
 const msg = unwrapMessage(m.message);
 try { const protocol = msg?.protocolMessage; if (protocol?.type === 0 && protocol?.key?.id) { await handleDeletedMessage(protocol.key, m.key); continue; } } catch (e) {}
-let body= msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || extractInteractiveId(m.message) || "";
+
+// FIXED BODY EXTRACT - buttons first
+let interactiveId = extractInteractiveId(m.message) || "";
+let body = interactiveId || msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || "";
+
 let pushName = m.pushName || "User"
 
 // ===== ANTI-VIEWONCE =====
@@ -198,7 +215,7 @@ try {
   }
 } catch (e) {}
 
-// ===== ANTI-LINK ENGLISH DYNAMIC USER =====
+// ===== ANTI-LINK =====
 try {
   let antilinkPath = './database/antilink.json'
   if(fs.existsSync(antilinkPath)){
@@ -236,7 +253,6 @@ try {
     }
   }
 } catch(e){ console.error("ANTI-LINK ERROR:", e.message) }
-// ===== END ANTI-LINK =====
 
 // ===== ANTI-BOT =====
 try {
@@ -277,13 +293,24 @@ if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   if(!sub){ return sock.sendMessage(chat, { text: `❌ Submenu unavailable: ${selected}\n${settings.footer}` }, { quoted: m }); }
   try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m }); }
 }
+
+// === SONG & VIDEO BUTTON HANDLER - FIXED ===
 if(body.startsWith("etech_video_") && commands.has("video")){
   const quality = body.toLowerCase().replace("etech_video_", "");
-  if(["360","480","720"].includes(quality)){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[quality + "p"],settings); }catch(e){} }
+  if(["360","480","720"].includes(quality)){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[quality + "p"],settings); }catch(e){ console.log(e) } }
 }
 if(body.startsWith("etech_song_") && commands.has("song")){
-  const action = body.toLowerCase();
-  if(action === "etech_song_audio" || action === "etech_song_document" || action === "etech_song_voice"){ try{ m.pushName = pushName; return await commands.get("song").execute(sock,m,[action.replace("etech_song_","")],settings); }catch(e){} }
+  const action = body.toLowerCase().trim();
+  // etech_song_audio or etech_song_document
+  if(action.includes("audio") || action.includes("document") || action.includes("voice")){
+    try{
+      m.pushName = pushName;
+      let fmt = "audio";
+      if(action.includes("document")) fmt = "document";
+      if(action.includes("voice")) fmt = "voice";
+      return await commands.get("song").execute(sock,m,[fmt],settings);
+    }catch(e){ console.log(e) }
+  }
 }
 if(/^(360P|480P|720P)$/i.test(body) && commands.has("video")){ try{ m.pushName = pushName; return await commands.get("video").execute(sock,m,[body.toLowerCase()],settings); }catch(e){} }
 if(/^(AUDIO|DOCUMENT|VOICE)$/i.test(body) && commands.has("song")){ try{ m.pushName = pushName; return await commands.get("song").execute(sock,m,[body.toLowerCase()],settings); }catch(e){} }
