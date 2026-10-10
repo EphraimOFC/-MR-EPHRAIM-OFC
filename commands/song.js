@@ -8,67 +8,49 @@ module.exports = {
   alias: ["play","music"],
   async execute(sock, m, args, settings) {
     const chat = m.chat;
-    const q = args.join(" ").trim();
+    let q = args.join(" ").trim();
+    if (!q) q = (m.text || m.body || "").trim();
+    const cleanQ = q.toLowerCase();
+    const userName = m.pushName || "MR EPHRAIM OFC";
+    const fancyName = `✧ ${userName.toUpperCase()} 𓂃✍︎𝄞`;
 
-    // If user already chose format: AUDIO / DOCUMENT / VOICE
-    if (["audio","document","voice"].includes(q.toLowerCase())) {
+    if (["1","2"].includes(cleanQ)) {
       const cache = global.songCache?.[chat];
-      if (!cache) return sock.sendMessage(chat, { text: `*❌⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* No song in cache\n*┗━━━━━━━━━━━━━❂*\n*┃* Use: \`?song yoga asake\`\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+      if (!cache) return sock.sendMessage(chat, { text: `❌ Cache expired` }, { quoted: m });
 
-      const { title, url, thumbnail } = cache;
       const outPath = path.join(__dirname, `../temp/${Date.now()}.mp3`);
-      if (!fs.existsSync(path.join(__dirname,'../temp'))) fs.mkdirSync(path.join(__dirname,'../temp'));
-
-      await sock.sendMessage(chat, { text: `*⏳⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`DOWNLOADING\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* 🎵 ${title.slice(0,50)}\n*┃* 📥 Format: ${q.toUpperCase()}\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+      if (!fs.existsSync(path.join(__dirname,'../temp'))) fs.mkdirSync(path.join(__dirname,'../temp'), { recursive: true });
 
       try {
-        // FIXED: android client bypasses 403
-        const cmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "youtube:player_client=android,web" -o "${outPath}" "${url}"`;
-        await new Promise((res, rej) => exec(cmd, (err) => err? rej(err) : res()));
+        const cmd = `yt-dlp -x --audio-format mp3 -o "${outPath}" "${cache.url}"`;
+        await new Promise((r,j)=> exec(cmd, e=> e?j(e):r()));
+        const buf = fs.readFileSync(outPath);
+        const mb = (buf.length/1024/1024).toFixed(1);
 
-        const buffer = fs.readFileSync(outPath);
-        if (q.toLowerCase() === "voice") {
-          await sock.sendMessage(chat, { audio: buffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
-        } else if (q.toLowerCase() === "document") {
-          await sock.sendMessage(chat, { document: buffer, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
+        // DYNAMIC - title and size from actual file + ONLY YOUR FOOTER
+        const cap = `${cache.title}\nSize: ${mb} MB\n\n👨‍💻 Develop By MR EPHRAIM OFC\n© Powered by E TECH OFC™`;
+
+        if (cleanQ === "2") {
+          await sock.sendMessage(chat, { document: buf, mimetype: 'audio/mpeg', fileName: `${cache.title}.mp3`, caption: cap }, { quoted: m });
         } else {
-          await sock.sendMessage(chat, { audio: buffer, mimetype: 'audio/mpeg' }, { quoted: m });
+          await sock.sendMessage(chat, { audio: buf, mimetype: 'audio/mpeg' }, { quoted: m });
+          await sock.sendMessage(chat, { text: cap }, { quoted: m });
         }
         fs.unlinkSync(outPath);
         delete global.songCache[chat];
-      } catch(e) {
-        return sock.sendMessage(chat, { text: `*❌⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* Download failed\n*┃* ${e.message.slice(0,200)}\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
-      }
+      } catch(e){ await sock.sendMessage(chat, { text: `❌ ${e.message}` }, { quoted: m }); }
       return;
     }
 
-    // Step 1: Search
-    if (!q) return sock.sendMessage(chat, { text: `*❓⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`SONG\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Use:?song yoga asake\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+    if (!q) return;
 
-    try {
-      await sock.sendMessage(chat, { text: `*🔍⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* Searching: ${q}\n*┗━━━━━━━━━━━━━❂*` }, { quoted: m });
-      const search = await YT.search(q, { limit: 1, type: 'video' });
-      const video = search[0];
-      if (!video) throw new Error("Not found");
+    const s = await YT.search(q, { limit: 1 });
+    const v = s[0];
+    if (!global.songCache) global.songCache = {};
+    global.songCache[chat] = { title: v.title, url: `https://youtube.com/watch?v=${v.id}` };
 
-      if (!global.songCache) global.songCache = {};
-      global.songCache[chat] = { title: video.title, url: `https://youtube.com/watch?v=${video.id}`, thumbnail: video.thumbnail?.url };
+    const txt = `*🎧⃝⃘̉̉̉━⋆─⋆──❂*\n*┊ ┊ ✫ ˚㋛ ⋆｡ ❀*\n*┊ ☠︎︎*\n*${fancyName}*\n*╰────────────────❂*\n *┏━━━━━━━━━━━❥❥❥*\n *┃* \`𝗦𝗢𝗡𝗚 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥\`\n *┗━━━━━━━━━━━❥❥❥*\n\n*📌 Title :-* ${v.title}\n*👤 Author :-* ${v.channel?.name}\n*⏱️ Duration :-* ${v.durationFormatted}\n\n*┏━「 𝚁𝚎𝙿𝙻𝚈 𝙽𝚄𝙼𝙱𝚎𝚁 ⤵️ 」*\n*┃* 1️⃣ \`Audio\`\n*┃* 2️⃣ \`Document\`\n*┗━━━━━━━━━━❥❥❥*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`;
 
-      const txt = `*🎵⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`SONG FOUND\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* *Title:* ${video.title}\n*┃* *Duration:* ${video.durationFormatted}\n*┃* *Channel:* ${video.channel?.name}\n*┃*\n*┏━「 CHOOSE FORMAT 」*\n*┃* Reply with:\n*┃* \`AUDIO\` - Normal mp3\n*┃* \`DOCUMENT\` - As file\n*┃* \`VOICE\` - As voice note\n*┗━━━━━━━━━━❥❥❥*\n\n*┃* Or tap button below\n*┃*\n*┗━「 ${settings.footer} 」*`;
-
-      // This will trigger your etech_song_ handler in index.js
-      await sock.sendMessage(chat, {
-        image: { url: video.thumbnail?.url },
-        caption: txt,
-        buttons: [
-          { buttonId: `etech_song_audio`, buttonText: { displayText: '🎧 AUDIO' }, type: 1 },
-          { buttonId: `etech_song_document`, buttonText: { displayText: '📄 DOCUMENT' }, type: 1 },
-          { buttonId: `etech_song_voice`, buttonText: { displayText: '🎤 VOICE' }, type: 1 }
-        ]
-      }, { quoted: m });
-
-    } catch(e) {
-      await sock.sendMessage(chat, { text: `*❌⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* Song failed: ${e.message}\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Try again or update yt-dlp\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
-    }
+    await sock.sendMessage(chat, { image: { url: v.thumbnail.url }, caption: txt }, { quoted: m });
   }
 };

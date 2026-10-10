@@ -1,44 +1,19 @@
 module.exports = {
   name: "antiviewonce",
-  execute: async (sock, m, args, settings) => {
-    if (typeof global.antiviewonce !== "boolean") global.antiviewonce = true;
-    const mode = args[0]?.toLowerCase();
-
+  async execute(sock, m, args, settings) {
+    if (typeof global.antiviewonce!== "boolean") {
+      global.antiviewonce = true;
+    }
+    const userName = m.pushName || "User";
+    const mode = args[0]? args[0].toLowerCase() : "";
     if (mode === "on") {
       global.antiviewonce = true;
-      return sock.sendMessage(m.chat, {
-        text: `┏━━━━━━━━━━━━━━
-┃ 👁️ *ANTI VIEW ONE*
-┗━━━━━━━━━━━━━━
-*Status :-* ON ✅
-
-*Note :-* _Reply to a View Once image, video or voice note with anything and I will restore it here._
-━━━━━━━━━━━━━━━━━━━━
-${settings.footer}`
-      }, { quoted: m });
+      return await sock.sendMessage(m.chat, { text: `*👁️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI VIEWONCE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Status: ON ✅\n*┃* User: ${userName}\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
     }
-
     if (mode === "off") {
       global.antiviewonce = false;
-      return sock.sendMessage(m.chat, {
-        text: `┏━━━━━━━━━━━━━━
-┃ 👁️ *ANTI VIEW ONE*
-┗━━━━━━━━━━━━━━
-*Status :-* OFF ❌
-
-${settings.footer}`
-      }, { quoted: m });
+      return await sock.sendMessage(m.chat, { text: `*👁️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI VIEWONCE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Status: OFF ❌\n*┃* User: ${userName}\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
     }
-
-    return sock.sendMessage(m.chat, {
-      text: `┏━━━━━━━━━━━━━━
-┃ 👁️ *ANTI VIEW ONE*
-┗━━━━━━━━━━━━━━
-*Status :-* ${global.antiviewonce ? "ON ✅" : "OFF ❌"}
-
-*Note :-* _Reply to a View Once image, video or voice note with anything and I will restore it here._
-━━━━━━━━━━━━━━━━━━━━
-${settings.footer}`
-    }, { quoted: m });
+    return await sock.sendMessage(m.chat, { text: `*👁️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI VIEWONCE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Status: ${global.antiviewonce? "ON ✅" : "OFF ❌"}\n*┃* User: ${userName}\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
   }
 };

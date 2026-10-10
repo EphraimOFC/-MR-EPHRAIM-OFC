@@ -37,9 +37,6 @@ global.antibot = global.antibot || {};
 global.botWarnings = global.botWarnings || {};
 global.antiDelete = true;
 global.messageCache = global.messageCache || new Map();
-global.antiInboxMode = global.antiInboxMode || false;
-global.antiInboxGroups = global.antiInboxGroups || [];
-global.antiInboxBlocked = global.antiInboxBlocked || [];
 global.__botStarting = global.__botStarting || false;
 global.__botReconnectTimer = global.__botReconnectTimer || null;
 
@@ -79,23 +76,26 @@ async function handleDeletedMessage(key, deletedByKey = null) {
   const cached = global.messageCache.get(cacheKey);
   if (!cached?.message) return;
   try {
-    const ownerJid = getOwnerJid();
     const sender = cached.key?.participant || cached.key?.remoteJid || 'unknown';
+    const senderName = cached.pushName || "User";
     const senderNum = String(sender).split('@')[0];
     const unwrap = (msg) => { if (!msg || typeof msg!== 'object') return {}; for (const wrapper of ['ephemeralMessage','viewOnceMessage','viewOnceMessageV2','viewOnceMessageV2Extension','documentWithCaptionMessage']) { if (msg[wrapper]?.message) return unwrap(msg[wrapper].message); } return msg; };
     const original = unwrap(cached.message);
     const originalText = original.conversation || original.extendedTextMessage?.text || original.imageMessage?.caption || original.videoMessage?.caption || "";
-    const designText = originalText? originalText.slice(0, 1000) : "_Media Deleted_";
-    const deleteDesign = `*♻️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗗𝗘𝗟𝗘𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n👤 *Sender:* +${senderNum}\n💬 ${designText}\n\n*<\> ${settings.footer}*\n*© 𝚛𝚀𝚞𝚎𝚎𝚗 𝙿𝚛𝚘*\n ̶ ̶ ̶ ̶ ̶ ̶`;
+    const designText = originalText? originalText.slice(0, 1000) : "_Media/Deleted_";
+    // FIXED FOOTER - NO MORE ${settings.footer} INSIDE BOX
+    const deleteDesign = `*♻️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗗𝗘𝗟𝗘𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n*┏━「 𝗗𝗘𝗧𝗔𝗜𝗟𝗦 」*\n*┃* 👤 Sender: ${senderName} @${senderNum}\n*┃* 💬 Message: ${designText}\n*┃* ⏰ Time: ${new Date().toLocaleTimeString()}\n*┗━━━━━━━━━━❥❥❥*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`;
+    const targetChat = key.remoteJid;
+    const mentions = sender.includes('@')? [sender] : [];
     if (original.conversation || original.extendedTextMessage || originalText) {
-      await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
+      await sock.sendMessage(targetChat, { text: deleteDesign, mentions });
     } else if (original.imageMessage || original.videoMessage || original.audioMessage || original.documentMessage || original.stickerMessage) {
       const media = await downloadMediaMessage(cached, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
-      if (original.imageMessage) await sock.sendMessage(ownerJid, { image: media, caption: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
-      else if (original.videoMessage) await sock.sendMessage(ownerJid, { video: media, caption: deleteDesign, mentions: sender.includes('@')? [sender] : [] });
-      else if (original.audioMessage) { await sock.sendMessage(ownerJid, { audio: media, mimetype: original.audioMessage.mimetype || 'audio/mpeg', ptt:!!original.audioMessage.ptt }); await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] }); }
-      else if (original.documentMessage) await sock.sendMessage(ownerJid, { document: media, mimetype: original.documentMessage.mimetype || 'application/octet-stream', fileName: original.documentMessage.fileName || 'deleted-file', caption: deleteDesign });
-      else if (original.stickerMessage) { await sock.sendMessage(ownerJid, { sticker: media }); await sock.sendMessage(ownerJid, { text: deleteDesign, mentions: sender.includes('@')? [sender] : [] }); }
+      if (original.imageMessage) await sock.sendMessage(targetChat, { image: media, caption: deleteDesign, mentions });
+      else if (original.videoMessage) await sock.sendMessage(targetChat, { video: media, caption: deleteDesign, mentions });
+      else if (original.audioMessage) { await sock.sendMessage(targetChat, { audio: media, mimetype: original.audioMessage.mimetype || 'audio/mpeg', ptt:!!original.audioMessage.ptt }); await sock.sendMessage(targetChat, { text: deleteDesign, mentions }); }
+      else if (original.documentMessage) await sock.sendMessage(targetChat, { document: media, mimetype: original.documentMessage.mimetype || 'application/octet-stream', fileName: original.documentMessage.fileName || 'deleted-file', caption: deleteDesign });
+      else if (original.stickerMessage) { await sock.sendMessage(targetChat, { sticker: media }); await sock.sendMessage(targetChat, { text: deleteDesign, mentions }); }
     }
   } catch (e) { console.error('ANTI-DELETE ERROR:', e.message); }
   finally { global.messageCache.delete(cacheKey); }
@@ -158,35 +158,6 @@ let isOwner=!!m.key.fromMe || isRealOwner(sender)||isRealOwner(senderAlt)||isRea
 if(m.key.fromMe &&!isOwner) return;
 m.chat=chat;
 
-// ===== ANTI-INBOX KICK + BLOCK =====
-try {
-  const isPrivate =!m.chat.endsWith("@g.us");
-  if (global.antiInboxMode && isPrivate &&!m.key.fromMe &&!isOwner) {
-    const spammer = m.key.participant || m.key.remoteJid;
-    await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI-INBOX ACTIVE\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Servers are DOWN.\n*┃* You will be KICKED + BLOCKED.\n*┃*\n*┗━「 ${settings.footer} 」*` });
-    if (global.antiInboxGroups && global.antiInboxGroups.length) {
-      for (let g of global.antiInboxGroups) {
-        try {
-          const meta = await sock.groupMetadata(g);
-          const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-          const isBotAdmin = meta.participants.find(p => p.id === botId)?.admin;
-          const isUserInGroup = meta.participants.find(p => p.id === spammer);
-          if (isBotAdmin && isUserInGroup) {
-            await sock.groupParticipantsUpdate(g, [spammer], 'remove');
-            await sock.sendMessage(g, { text: `*🚫⃝⃘̉̉̉━⋆─❂*\n*┃* \`@${spammer.split('@')[0]} KICKED & BLOCKED\`\n*┛━━━━━━━━━━❂*\n\n*Reason:* DM'd during downtime\n\n*<\> ${settings.footer}*`, mentions: [spammer] });
-          }
-        } catch(e){}
-      }
-    }
-    try {
-      await sock.updateBlockStatus(spammer, "block");
-      if (!global.antiInboxBlocked.includes(spammer)) global.antiInboxBlocked.push(spammer);
-    } catch(e){}
-    continue;
-  }
-} catch(e){ console.log("Anti-inbox error", e.message) }
-// ===== END ANTI-INBOX =====
-
 try {
   let dbPath = './database/activity.json'
   if(!fs.existsSync('./database')) fs.mkdirSync('./database')
@@ -214,31 +185,48 @@ let interactiveId = extractInteractiveId(m.message) || "";
 let body = interactiveId || msg.conversation || msg.extendedTextMessage?.text || msg.buttonsResponseMessage?.selectedButtonId || msg.templateButtonReplyMessage?.selectedId || msg.listResponseMessage?.singleSelectReply?.selectedRowId || "";
 let pushName = m.pushName || "User"
 
-// ===== MODE LOGIC 4 MODES =====
+// ===== ANTI INBOX - ONLY FOR. COMMANDS IN DM =====
+try {
+  const isPrivate =!m.chat.endsWith("@g.us");
+  const txt = body.trim();
+  if (!isOwner && isPrivate && txt.length > 0) {
+    const isOwnerCmd = txt.startsWith("?");
+    const isPublicCmd = txt.startsWith(".");
+    if (isOwnerCmd) {
+      await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗢𝗪𝗡𝗘𝗥 𝗢𝗡𝗟𝗬\`\n*┗━━━━━━━━━━━━━❂*\n\n*┏━「 𝗗𝗘𝗧𝗔𝗜𝗟𝗦 」*\n*┃* 👤 User: ${pushName}\n*┃* ❌ Owner commands only (?)\n*┗━━━━━━━━━━❥❥❥*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
+      continue;
+    }
+    if (isPublicCmd) {
+      await sock.sendMessage(m.chat, { text: `*🚫⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗜𝗡𝗕𝗢𝗫\`\n*┗━━━━━━━━━━━━━❂*\n\n*┏━「 𝗗𝗘𝗧𝗔𝗜𝗟𝗦 」*\n*┃* 👤 User: ${pushName}\n*┃* 💬 Tried: ${txt.slice(0,25)}\n*┃* 📍 Where: Inbox DM\n*┃* ⚠️ Use in Groups Only\n*┗━━━━━━━━━━❥❥❥*\n\n*📢 Join Group To Use Bot*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
+      continue;
+    }
+  }
+} catch(e){ console.log("Anti-inbox error", e.message) }
+
+// ===== FIXED MODE LOGIC - PRIVATE MODE SILENT IN GROUPS =====
 try {
   const currentMode = global.privacyMode || "public";
   const isGroup = m.chat.endsWith("@g.us");
   const isCmd = body.startsWith(settings.prefix) || body.startsWith("?");
   if (currentMode === "private" &&!isOwner) {
-    if (isCmd) await sock.sendMessage(chat, { text: `*🔒⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗣𝗥𝗜𝗩𝗔𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Owner only mode\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
+    if (isGroup) {
+      return; // SILENT - NO REPLY IN GROUPS
+    }
+    if (isCmd) await sock.sendMessage(chat, { text: `*🔒⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗣𝗥𝗜𝗩𝗔𝗧𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Owner only mode\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m });
     return;
   }
   if (currentMode === "inbox" && isGroup) {
     if (!isOwner) {
-      if (isCmd) await sock.sendMessage(chat, { text: `*📥⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗜𝗡𝗕𝗢𝗫\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Bot in DM only\n*┃* Use in private\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
-      return;
+      return; // SILENT IN GROUPS WHEN INBOX MODE
     }
   }
   if (currentMode === "group" &&!isGroup) {
     if (!isOwner) {
-      if (isCmd) await sock.sendMessage(chat, { text: `*👥⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗚𝗥𝗢𝗨𝗣\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* Bot in groups only\n*┃* Use in group\n*┃*\n*┗━「 ${settings.footer} 」*` }, { quoted: m });
-      return;
+      return; // SILENT IN INBOX WHEN GROUP MODE
     }
   }
 } catch(e){}
-// ===== END MODE =====
 
-// ANTI-VIEWONCE
 const findViewOnce = (msg) => {
   if (!msg || typeof msg!== 'object') return null;
   const mediaTypes = ['imageMessage','videoMessage','audioMessage'];
@@ -253,7 +241,7 @@ try {
   if (global.antiviewonce) {
     const ctx = getReplyContext(m.message); const stanzaId = ctx?.stanzaId; let target = stanzaId? global.viewOnceCache.get(`${chat}:${stanzaId}`) : null;
     if (!target && stanzaId) { const cached = global.messageCache.get(`${chat}:${stanzaId}`); if (cached && findViewOnce(cached.message)) target = cached; }
-    if (!target && ctx?.quotedMessage && findViewOnce(ctx.quotedMessage)) target = { key: { remoteJid: chat, id: stanzaId || `quoted-${Date.now()}`, fromMe: false, participant: ctx.participant || sender }, message: ctx.quotedMessage, pushName: 'User' };
+    if (!target && ctx?.quotedMessage && findViewOnce(ctx.quotedMessage)) target = { key: { remoteJid: chat, id: stanzaId || `quoted-${Date.now()}`, fromMe: false, participant: ctx.participant || sender }, message: ctx.quotedMessage, pushName: ctx.pushName || 'User' };
     if (target?.message) {
       const view = findViewOnce(target.message);
       if (view?.message && ['imageMessage','videoMessage','audioMessage'].includes(view.type)) {
@@ -261,7 +249,9 @@ try {
         const inner = { [view.type]: mediaMessage };
         const targetForDownload = {...target, message: inner, key: {...(target.key || {}), remoteJid: target.key?.remoteJid || chat, id: target.key?.id || stanzaId || m.key.id } };
         const buffer = await downloadMediaMessage(targetForDownload, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
-        const caption = `┏━━━━━━━━━━━━━━\n┃ 👁️ *ANTI VIEW ONE*\n┗━━━━━━━━━━━━━━\n*Note :-* _Do not use this service to damage the image of any person._\n━━━━━━━━━━━━━━━━━━━━\n${settings.footer}`;
+        // DYNAMIC SENDER - WHOEVER SENT VIEWONCE
+        const senderName = target.pushName || target.key?.participant?.split('@')[0] || pushName || "User";
+        const caption = `*👁️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗩𝗜𝗘𝗪𝗢𝗡𝗖𝗘\`\n*┗━━━━━━━━━━━━━❂*\n\n*┏━「 𝗗𝗘𝗧𝗔𝗜𝗟𝗦 」*\n*┃* 👤 Sender: ${senderName}\n*┃* 📎 Recovered viewonce\n*┗━━━━━━━━━━❥❥❥*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`;
         if (view.type === 'imageMessage') await sock.sendMessage(chat, { image: buffer, caption });
         else if (view.type === 'videoMessage') await sock.sendMessage(chat, { video: buffer, caption });
         else if (view.type === 'audioMessage') { await sock.sendMessage(chat, { audio: buffer, mimetype: view.message[view.type]?.mimetype || 'audio/mpeg', ptt:!!view.message[view.type]?.ptt }); await sock.sendMessage(chat, { text: caption }); }
@@ -271,7 +261,6 @@ try {
   }
 } catch (e) {}
 
-// ANTI-LINK
 try {
   let antilinkPath = './database/antilink.json'
   if(fs.existsSync(antilinkPath)){
@@ -293,14 +282,14 @@ try {
           fs.writeFileSync(antilinkPath, JSON.stringify(antilinkDB, null, 2))
           let warn = antilinkDB[chat].warnCount[sender]
           let senderNum = sender.split('@')[0]
-          let txt = `*🛡️⃝⃘̉̉̉━⋆─❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗟𝗜𝗡𝗞\`\n*┛━━━━━━━━━━❂*\n\n*👤 User:* @${senderNum}\n*🚫 Reason:* _Sending links not allowed_\n*📉 Warning:* _${warn}/3_\n*⚠️ Action:* _Deleted & Warned_\n\n*<\> ${settings.footer}*`
+          let txt = `*🛡️⃝⃘̉̉̉━⋆─❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗟𝗜𝗡𝗞\`\n*┛━━━━━━━━━━❂*\n\n*👤 User:* @${senderNum}\n*🚫 Reason:* _Sending links not allowed_\n*📉 Warning:* _${warn}/3_\n*⚠️ Action:* _Deleted & Warned_\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`
           await sock.sendMessage(chat, { text: txt, mentions: [sender] })
           if(warn >= 3){
             try{
               await sock.groupParticipantsUpdate(chat, [sender], "remove")
               delete antilinkDB[chat].warnCount[sender]
               fs.writeFileSync(antilinkPath, JSON.stringify(antilinkDB, null, 2))
-              await sock.sendMessage(chat, { text: `*🛡️ ANTI-LINK*\n\n@${senderNum} removed after 3 warnings.\n\n*<\> ${settings.footer}*`, mentions: [sender] })
+              await sock.sendMessage(chat, { text: `*🛡️⃝⃘̉̉̉━⋆─⋆──❂*\n*┃* \`ANTI LINK\`\n*┗━━━━━━━━━━━━━❂*\n\n*┃* @${senderNum} removed after 3 warnings.\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`, mentions: [sender] })
             }catch(e){}
           }
           return
@@ -310,44 +299,42 @@ try {
   }
 } catch(e){ console.error("ANTI-LINK ERROR:", e.message) }
 
-// ANTI-BOT
 try {
   if (chat.endsWith("@g.us") && global.antibot[chat]!== false &&!isOwner && body.trim().startsWith("?")) {
     try { await sock.sendMessage(chat, { delete: m.key }) } catch {}
     const senderNumber = String(sender).split("@")[0];
     const warn = (global.botWarnings[sender] || 0) + 1;
     global.botWarnings[sender] = warn;
-    const warnText = `*🛡️⃝⃘̉̉̉━⋆─❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`\n*┗━━━━━━━━━━❂*\n\n*👤 User:* @${senderNumber}\n*🚫 Reason:* *Unauthorized Bot usage*\n*📉 Warning:* *${warn}/5*\n*⚠️ Action:* *Deleted & Warned*\n\n${settings.footer}`;
+    const warnText = `*🛡️⃝⃘̉̉̉━⋆─❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗕𝗢𝗧\`\n*┛━━━━━━━━━━❂*\n\n*👤 User:* @${senderNumber}\n*🚫 Reason:* *Unauthorized Bot usage*\n*📉 Warning:* *${warn}/5*\n*⚠️ Action:* *Deleted & Warned*\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*`;
     await sock.sendMessage(chat, { text: warnText, mentions: [sender] });
     if (warn >= 5) { try { await sock.groupParticipantsUpdate(chat, [sender], "remove"); delete global.botWarnings[sender]; } catch (e) {} }
     return;
   }
 } catch (e) {}
 
-// ALIVE REPLY
 let cleanBody = body.trim().toLowerCase()
 if(global.aliveReply[chat] && ["1","2","3","4"].includes(cleanBody)){
   delete global.aliveReply[chat]
   if(cleanBody==="1"){ body = ".menu" }
   else if(cleanBody==="2"){ body = ".ping" }
   else if(cleanBody==="3"){
-    if(!isOwner) return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m })
-    return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n*AntiBot:* ${global.antibot[chat]?"ON":"OFF"}\n\n${settings.footer}` }, { quoted: m })
+    if(!isOwner) return sock.sendMessage(chat, { text: `❌ Owner only\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*` }, { quoted: m })
+    return sock.sendMessage(chat, { text: `*⚙️ SETTINGS*\n\n*Owner:* ${PROTECTED_OWNER_NUMS.join(", ")}\n*Prefix:* ${settings.prefix}\n*Mode:* ${global.privacyMode}\n*AntiCall:* ${global.anticall}\n*AntiViewOnce:* ${global.antiviewonce}\n*AntiBot:* ${global.antibot[chat]?"ON":"OFF"}\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m })
   } else if(cleanBody==="4"){
     let up = Math.floor(process.uptime()/60)
     let hrs = Math.floor(up/60)
     let uptime = hrs>0? `${hrs}h ${up%60}m` : `${up}m`
-    return sock.sendMessage(chat, { text: `*🤖 BOT INFO*\n\n*Name:* E TECH OFC\n*Owner:* Mr Ephraim Ofc\n*Commands:* ${commands.size}\n*Uptime:* ${uptime}\n*Prefix:* ${settings.prefix}\n\n${settings.footer}` }, { quoted: m })
+    return sock.sendMessage(chat, { text: `*🤖 BOT INFO*\n\n*Name:* E TECH OFC\n*Owner:* Mr Ephraim Ofc\n*Commands:* ${commands.size}\n*Uptime:* ${uptime}\n*Prefix:* ${settings.prefix}\n\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*\n> *© Powered by E TECH OFC™*` }, { quoted: m })
   }
 }
 if(global.menuReply[chat] && ["1","2","3","4","5","6","7"].includes(cleanBody)){
   const menuCmds = { "1": "ownermenu", "2": "dlmenu", "3": "aimenu", "4": "gmenu", "5": "toolsmenu", "6": "edumenu", "7": "channelmenu" };
   const selected = menuCmds[cleanBody];
   delete global.menuReply[chat];
-  if(cleanBody === "1" &&!isOwner){ return sock.sendMessage(chat, { text: `❌ Owner only\n${settings.footer}` }, { quoted: m }); }
+  if(cleanBody === "1" &&!isOwner){ return sock.sendMessage(chat, { text: `❌ Owner only\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*` }, { quoted: m }); }
   const sub = commands.get(selected);
-  if(!sub){ return sock.sendMessage(chat, { text: `❌ Submenu unavailable: ${selected}\n${settings.footer}` }, { quoted: m }); }
-  try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n${settings.footer}` }, { quoted: m }); }
+  if(!sub){ return sock.sendMessage(chat, { text: `❌ Submenu unavailable: ${selected}\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*` }, { quoted: m }); }
+  try{ m.pushName = pushName; return await sub.execute(sock,m,[],settings); }catch(e){ return sock.sendMessage(chat, { text: `❌ Submenu error: ${e.message}\n👨‍💻 Develop By *ᴍʀ ᴇᴘʜʀᴀɪᴍ ᴏꜰᴄ*` }, { quoted: m }); }
 }
 
 if(global.openReply && global.openReply[chat] && ["1","2"].includes(cleanBody)){
