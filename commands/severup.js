@@ -3,28 +3,28 @@ module.exports = {
   alias: ["serveron"],
   async execute(sock, m, args, settings) {
     const chat = m.chat;
-    if (!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: `❌ Group only` }, { quoted: m });
+    global.antiInboxMode = false;
+    global.antiInboxGroups = [];
 
-    const message = `✅ *SERVERS RESTORED* ✅
-━━━━━━━━━━━━━━━━━━━━━
+    const text = `*✅⃝⃘̉̉̉━⋆─⋆──❂*
+*┃* \`𝗦𝗘𝗥𝗩𝗘𝗥𝗦 𝗥𝗘𝗦𝗧𝗢𝗥𝗘𝗗\`
+*┗━━━━━━━━━━━━━❂*
 
-Great news!
+*┏━「 𝗦𝗧𝗔𝗧𝗨𝗦 」*
+*┃* 🟢 \`ALL SYSTEMS ONLINE\`
+*┃* 🔓 \`GROUP OPENED\`
+*┃* ✅ \`ANTI-INBOX OFF\`
+*┗━━━━━━━━━━❥❥❥*
 
-All servers are now *BACK ONLINE* and working perfectly.
-
-The group is now *OPENED* for everyone.
-
-Thank you for your patience and understanding.
-
-*👨‍💻 Developed By MR EPHRAIM OFC*
-*© Powered by E TECH OFC™*
-━━━━━━━━━━━━━━━━━━━━━`;
+*┃* _Thanks for patience._
+*┃*
+*┗━「 ${settings.footer} 」*`;
 
     try {
       await sock.groupSettingUpdate(chat, 'not_announcement');
-      await sock.sendMessage(chat, { text: message });
+      await sock.sendMessage(chat, { text }, { quoted: m });
       await sock.sendMessage(chat, { react: { text: "✅", key: m.key } });
-    } catch (e) {
+    } catch {
       return sock.sendMessage(chat, { text: `❌ Bot must be admin\n${settings.footer}` }, { quoted: m });
     }
   }
