@@ -198,6 +198,46 @@ try {
   }
 } catch (e) {}
 
+// ===== ANTI-LINK ENGLISH DYNAMIC USER =====
+try {
+  let antilinkPath = './database/antilink.json'
+  if(fs.existsSync(antilinkPath)){
+    let antilinkDB = JSON.parse(fs.readFileSync(antilinkPath))
+    if(chat.endsWith("@g.us") && antilinkDB[chat]?.enabled){
+      let linkRegex = /(https?:\/\/|www\.|t\.me|telegram\.me|wa\.me|whatsapp\.com\/|chat\.whatsapp\.com\/)/i
+      if(linkRegex.test(body) &&!isOwner){
+        let isAdmin = false
+        try{
+          let meta = await sock.groupMetadata(chat)
+          let participant = meta.participants.find(p => p.id === sender)
+          isAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin'
+        }catch{}
+        if(!isAdmin){
+          try{ await sock.sendMessage(chat, { delete: m.key }) }catch{}
+          if(!antilinkDB[chat].warnCount) antilinkDB[chat].warnCount = {}
+          if(!antilinkDB[chat].warnCount[sender]) antilinkDB[chat].warnCount[sender] = 0
+          antilinkDB[chat].warnCount[sender] += 1
+          fs.writeFileSync(antilinkPath, JSON.stringify(antilinkDB, null, 2))
+          let warn = antilinkDB[chat].warnCount[sender]
+          let senderNum = sender.split('@')[0]
+          let txt = `*🛡️⃝⃘̉̉̉━⋆─❂*\n*┃* \`𝗔𝗡𝗧𝗜 𝗟𝗜𝗡𝗞\`\n*┛━━━━━━━━━━❂*\n\n*👤 User:* @${senderNum}\n*🚫 Reason:* _Sending links not allowed_\n*📉 Warning:* _${warn}/3_\n*⚠️ Action:* _Deleted & Warned_\n\n*<\> ${settings.footer}*`
+          await sock.sendMessage(chat, { text: txt, mentions: [sender] })
+          if(warn >= 3){
+            try{
+              await sock.groupParticipantsUpdate(chat, [sender], "remove")
+              delete antilinkDB[chat].warnCount[sender]
+              fs.writeFileSync(antilinkPath, JSON.stringify(antilinkDB, null, 2))
+              await sock.sendMessage(chat, { text: `*🛡️ ANTI-LINK*\n\n@${senderNum} removed after 3 warnings.\n\n*<\> ${settings.footer}*`, mentions: [sender] })
+            }catch(e){}
+          }
+          return
+        }
+      }
+    }
+  }
+} catch(e){ console.error("ANTI-LINK ERROR:", e.message) }
+// ===== END ANTI-LINK =====
+
 // ===== ANTI-BOT =====
 try {
   if (chat.endsWith("@g.us") && global.antibot[chat]!== false &&!isOwner && body.trim().startsWith("?")) {
