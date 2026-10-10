@@ -5,8 +5,15 @@ module.exports = {
     let chat = m.chat
     if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: "Group only" })
 
+    // Add trophy reaction like RedQueen
+    try{
+      await sock.sendMessage(chat, { react: { text: "🏆", key: m.key } })
+    }catch{}
+
     let path = './database/activity.json'
-    if(!fs.existsSync(path)) return sock.sendMessage(chat, { text: `*MONEY HEIST*\n\nℹ️ Activity tracking is OFF in this group.\nAn admin can start it:?activity on\n\n*<\> ${settings.footer}*` })
+    if(!fs.existsSync(path)){
+      return sock.sendMessage(chat, { text: `*MONEY HEIST*\n\nℹ️ Activity tracking is OFF in this group.\nAn admin can start it:?activity on\n\n*<\> ${settings.footer}*` })
+    }
 
     let db = JSON.parse(fs.readFileSync(path))
     if(!db[chat] ||!db[chat].enabled){
