@@ -1,22 +1,24 @@
 module.exports = {
-name: "close",
-async execute(sock, m, args, settings) {
-  let chat = m.chat
-  if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: `❌ Group only\n${settings.footer}` }, { quoted: m })
-  
-  try{
-    await sock.groupSettingUpdate(chat, 'announcement')
-    let txt = `*👁️⃝⃘̉̉̉━⋆─⋆──❂*
-*┃* \`𝗚𝗥𝗢𝗨𝗣 𝗦𝗧𝗔𝗧𝗨𝗦\`
+  name: "close",
+  async execute(sock, m, args, settings) {
+    let chat = m.chat
+    if(!chat.endsWith("@g.us")) return sock.sendMessage(chat, { text: "Group only" })
+    try{
+      let txt = `*🔐⃝⃘̉̉̉━⋆─⋆──❂*
+*┃* \`𝗢𝗣𝗘𝗡𝗘𝗗 (𝗘𝗩𝗘𝗥𝗬𝗢𝗡𝗘 𝗖𝗔𝗡 𝗠𝗘𝗦𝗦𝗔𝗚𝗘)?\`
 *┗━━━━━━━━━━━━━❂*
 
-*✅ Status:* CLOSED (only admins can message)
-*👤 Action by:* ${m.pushName || "Admin"}
+*Reply with a number:*
 
-${settings.footer}`
-    await sock.sendMessage(chat, { text: txt }, { quoted: m })
-  }catch(e){
-    await sock.sendMessage(chat, { text: `❌ Bot not admin\n${settings.footer}` }, { quoted: m })
+*┏━「 𝚁𝚎𝙿𝙻𝚈 𝙽𝚄𝙼𝙱𝚎𝚁  ⤵️ 」*
+*┃* 1️⃣ \`OPENED (everyone can message) now (stays until changed)\`
+*┃* 2️⃣ \`OPENED (everyone can message) now, auto-undo after a time\`
+*┗━━━━━━━━━━❥❥❥*
+
+*<\> ${settings.footer}*`
+      await sock.sendMessage(chat, { text: txt })
+    }catch(e){
+      await sock.sendMessage(chat, { text: "Error: " + e.message })
+    }
   }
-}
 }
